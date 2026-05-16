@@ -7,6 +7,12 @@ namespace AIUsageMonitor.Views;
 
 public partial class UsageOverlayWindow : Window
 {
+    private const double OverlayAspectRatio = 900d / 760d;
+
+    private double _resizeStartHeight;
+    private double _resizeStartWidth;
+    private System.Windows.Point _resizeStartScreenPoint;
+
     public event EventHandler? ReloadRequested;
 
     public event EventHandler? SettingsRequested;
@@ -64,10 +70,50 @@ public partial class UsageOverlayWindow : Window
         }
     }
 
+    private void ResizeThumbOnDragStarted(object sender, DragStartedEventArgs e)
+    {
+        _resizeStartWidth = ActualWidth;
+        _resizeStartHeight = ActualHeight;
+        _resizeStartScreenPoint = GetMouseScreenPosition();
+    }
+
     private void ResizeThumbOnDragDelta(object sender, DragDeltaEventArgs e)
     {
-        Width = Math.Max(MinWidth, Width + e.HorizontalChange);
-        Height = Math.Max(MinHeight, Height + e.VerticalChange);
+        var delta = ScreenPixelsToDips(GetMouseScreenPosition() - _resizeStartScreenPoint);
+        var requestedWidth = _resizeStartWidth + delta.X;
+        var requestedHeight = _resizeStartHeight + delta.Y;
+        var widthScale = requestedWidth / Math.Max(1, _resizeStartWidth);
+        var heightScale = requestedHeight / Math.Max(1, _resizeStartHeight);
+        var scale = Math.Abs(widthScale - 1) >= Math.Abs(heightScale - 1)
+            ? widthScale
+            : heightScale;
+        var minScale = Math.Max(
+            MinWidth / Math.Max(1, _resizeStartWidth),
+            MinHeight / Math.Max(1, _resizeStartHeight));
+
+        scale = Math.Max(minScale, scale);
+        var width = Math.Max(MinWidth, _resizeStartWidth * scale);
+        var height = width / OverlayAspectRatio;
+
+        if (height < MinHeight)
+        {
+            height = MinHeight;
+            width = height * OverlayAspectRatio;
+        }
+
+        Width = width;
+        Height = height;
+    }
+
+    private System.Windows.Point GetMouseScreenPosition()
+    {
+        return PointToScreen(Mouse.GetPosition(this));
+    }
+
+    private Vector ScreenPixelsToDips(Vector screenPixels)
+    {
+        var source = PresentationSource.FromVisual(this);
+        return source?.CompositionTarget?.TransformFromDevice.Transform(screenPixels) ?? screenPixels;
     }
 
     private void BeginDragMove(MouseButtonEventArgs e)

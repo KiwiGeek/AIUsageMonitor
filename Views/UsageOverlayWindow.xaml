@@ -319,6 +319,7 @@
                VerticalAlignment="Bottom"
                Cursor="SizeNWSE"
                ToolTip="Resize"
+               DragStarted="ResizeThumbOnDragStarted"
                DragDelta="ResizeThumbOnDragDelta">
             <Thumb.Template>
                 <ControlTemplate TargetType="Thumb">
