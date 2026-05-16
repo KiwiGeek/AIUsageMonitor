@@ -1,0 +1,379 @@
+using System.Drawing;
+using System.IO;
+using System.Windows;
+using System.Windows.Threading;
+using AIUsageMonitor.Models;
+using AIUsageMonitor.ViewModels;
+using AIUsageMonitor.Views;
+using WinForms = System.Windows.Forms;
+using WpfApplication = System.Windows.Application;
+
+namespace AIUsageMonitor.Services;
+
+public sealed class TrayIconService : IDisposable
+{
+    private readonly UsageAggregatorService _usageAggregatorService;
+    private readonly AppSettingsService _settingsService;
+    private readonly AppLogService _logService;
+    private readonly ClaudeStatusExporterService _claudeStatusExporterService;
+    private readonly UsageOverlayViewModel _viewModel = new();
+    private readonly Icon _appIcon;
+    private readonly WinForms.NotifyIcon _notifyIcon;
+    private readonly DispatcherTimer _refreshTimer = new();
+    private readonly DispatcherTimer _relativeTimeTimer = new();
+    private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
+    private AppSettings _settings;
+    private UsageOverlayWindow? _overlayWindow;
+    private LogWindow? _logWindow;
+    private CursorDashboardLoginWindow? _cursorDashboardLoginWindow;
+    private CancellationTokenSource? _refreshCts;
+    private bool _suppressNextCancellationLog;
+    private bool _disposed;
+
+    public TrayIconService(UsageAggregatorService usageAggregatorService, AppSettingsService settingsService, AppLogService logService)
+    {
+        _usageAggregatorService = usageAggregatorService;
+        _settingsService = settingsService;
+        _logService = logService;
+        _claudeStatusExporterService = new ClaudeStatusExporterService(logService);
+        _appIcon = AppIconService.LoadTrayIcon();
+        _settings = _settingsService.Load();
+        EnsureClaudeStatusExporterIfEnabled();
+
+        var menu = new WinForms.ContextMenuStrip();
+        menu.Items.Add("Show Seth's AI Usage Monitor", null, (_, _) => Dispatch(ShowOverlay));
+        menu.Items.Add("Refresh Now", null, (_, _) => Dispatch(() => _ = ManualRefreshAsync()));
+        menu.Items.Add("Settings", null, (_, _) => Dispatch(ShowSettings));
+        menu.Items.Add("Logs", null, (_, _) => Dispatch(ShowLogs));
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("Exit", null, (_, _) => Dispatch(Exit));
+
+        _notifyIcon = new WinForms.NotifyIcon
+        {
+            Icon = _appIcon,
+            Text = AppMetadata.DisplayNameWithVersion,
+            ContextMenuStrip = menu,
+            Visible = true
+        };
+        _notifyIcon.MouseUp += NotifyIconOnMouseUp;
+
+        _refreshTimer.Tick += RefreshTimerOnTick;
+        _relativeTimeTimer.Interval = TimeSpan.FromSeconds(30);
+        _relativeTimeTimer.Tick += RelativeTimeTimerOnTick;
+        _relativeTimeTimer.Start();
+        ConfigureRefreshTimer();
+        _viewModel.SetAutoRefreshInterval(_settings.UpdateIntervalMinutes);
+        UpdateLogSummary();
+        _ = RefreshUsageAsync(force: false);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _refreshCts?.Cancel();
+        _refreshCts = null;
+        _refreshTimer.Stop();
+        _refreshTimer.Tick -= RefreshTimerOnTick;
+        _relativeTimeTimer.Stop();
+        _relativeTimeTimer.Tick -= RelativeTimeTimerOnTick;
+        _notifyIcon.MouseUp -= NotifyIconOnMouseUp;
+        _notifyIcon.Visible = false;
+        _notifyIcon.Dispose();
+        _appIcon.Dispose();
+    }
+
+    private void NotifyIconOnMouseUp(object? sender, WinForms.MouseEventArgs e)
+    {
+        if (e.Button == WinForms.MouseButtons.Left)
+        {
+            Dispatch(ToggleOverlay);
+        }
+    }
+
+    private static void Dispatch(Action action)
+    {
+        var dispatcher = WpfApplication.Current.Dispatcher;
+
+        if (dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        dispatcher.Invoke(action);
+    }
+
+    private void ToggleOverlay()
+    {
+        if (_overlayWindow?.IsVisible == true)
+        {
+            _overlayWindow.Hide();
+            return;
+        }
+
+        ShowOverlay();
+    }
+
+    public void ShowOverlay()
+    {
+        EnsureOverlayWindow();
+        _overlayWindow!.Show();
+        _overlayWindow.Activate();
+    }
+
+    private void EnsureOverlayWindow()
+    {
+        if (_overlayWindow is not null)
+        {
+            return;
+        }
+
+        _overlayWindow = new UsageOverlayWindow
+        {
+            DataContext = _viewModel
+        };
+        _overlayWindow.ReloadRequested += (_, _) => _ = ManualRefreshAsync();
+        _overlayWindow.SettingsRequested += (_, _) => ShowSettings();
+        _overlayWindow.LogsRequested += (_, _) => ShowLogs();
+        _overlayWindow.Closed += (_, _) => _overlayWindow = null;
+    }
+
+    private async Task ManualRefreshAsync()
+    {
+        _usageAggregatorService.ResetBackoff();
+        await RefreshUsageAsync(force: true);
+        RestartRefreshTimer();
+    }
+
+    private void RefreshTimerOnTick(object? sender, EventArgs e)
+    {
+        _ = RefreshUsageAsync(force: false);
+    }
+
+    private void RelativeTimeTimerOnTick(object? sender, EventArgs e)
+    {
+        _viewModel.RefreshRelativeTimes();
+    }
+
+    private void ConfigureRefreshTimer()
+    {
+        _refreshTimer.Stop();
+        _refreshTimer.Interval = TimeSpan.FromMinutes(_settings.UpdateIntervalMinutes);
+        _refreshTimer.Start();
+    }
+
+    private void RestartRefreshTimer()
+    {
+        _refreshTimer.Stop();
+        _refreshTimer.Start();
+    }
+
+    private void ShowSettings()
+    {
+        var settingsWindow = new SettingsWindow(_settings);
+
+        if (_overlayWindow?.IsVisible == true)
+        {
+            settingsWindow.Owner = _overlayWindow;
+        }
+        else
+        {
+            settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
+
+        if (settingsWindow.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _settings = settingsWindow.Settings;
+        _settingsService.Save(_settings);
+        ApplyAutoRunSetting();
+        EnsureClaudeStatusExporterIfEnabled();
+        ConfigureRefreshTimer();
+        _viewModel.SetAutoRefreshInterval(_settings.UpdateIntervalMinutes);
+        _logService.Info("Settings", "Settings saved.");
+        UpdateLogSummary();
+
+        if (settingsWindow.OpenCursorLoginRequested)
+        {
+            ShowCursorDashboardLogin();
+            return;
+        }
+
+        _ = ManualRefreshAsync();
+    }
+
+    private void ApplyAutoRunSetting()
+    {
+        try
+        {
+            AutoRunService.SetEnabled(_settings.AutoRunAtLoginEnabled);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            _logService.Warning("Settings", $"Could not update auto-run setting: {ex.Message}");
+        }
+    }
+
+    private void EnsureClaudeStatusExporterIfEnabled()
+    {
+        if (!_settings.ClaudeStatusExporterEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            _claudeStatusExporterService.EnsureInstalled();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
+        {
+            _logService.Warning("Anthropic", $"Could not install Claude status exporter: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshUsageAsync(bool force)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (force && _refreshCts is not null)
+        {
+            _suppressNextCancellationLog = true;
+            _refreshCts.Cancel();
+        }
+
+        var lockAcquired = force
+            ? await WaitForRefreshLockAsync()
+            : await _refreshSemaphore.WaitAsync(0);
+
+        if (!lockAcquired)
+        {
+            return;
+        }
+
+        using var refreshCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        _refreshCts = refreshCts;
+
+        try
+        {
+            _viewModel.SetChecking(_usageAggregatorService.ProviderNames);
+            var snapshot = await _usageAggregatorService.CollectAsync(refreshCts.Token);
+            if (_disposed)
+            {
+                return;
+            }
+
+            _viewModel.ApplySnapshot(snapshot, snapshot.Source);
+            UpdateLogSummary();
+        }
+        catch (OperationCanceledException ex)
+        {
+            if (!_disposed && !_suppressNextCancellationLog)
+            {
+                _logService.Warning("Refresh", $"Usage collection timed out or was canceled: {ex.Message}");
+                _viewModel.SetError("Usage collection timed out. Details were added to the log.", "Live/local collectors");
+                UpdateLogSummary();
+            }
+
+            _suppressNextCancellationLog = false;
+        }
+        catch (Exception ex)
+        {
+            _logService.Error("Refresh", $"{ex.GetType().Name}: {ex.Message}");
+            _viewModel.SetError("Usage collection failed. Details were added to the log.", "Live/local collectors");
+            UpdateLogSummary();
+        }
+        finally
+        {
+            if (ReferenceEquals(_refreshCts, refreshCts))
+            {
+                _refreshCts = null;
+            }
+
+            _viewModel.RefreshRelativeTimes();
+            _refreshSemaphore.Release();
+        }
+    }
+
+    private async Task<bool> WaitForRefreshLockAsync()
+    {
+        try
+        {
+            await _refreshSemaphore.WaitAsync();
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    private void ShowLogs()
+    {
+        if (_logWindow is null)
+        {
+            _logWindow = new LogWindow(_logService);
+            if (_overlayWindow?.IsVisible == true)
+            {
+                _logWindow.Owner = _overlayWindow;
+            }
+
+            _logWindow.LogsCleared += (_, _) => UpdateLogSummary();
+            _logWindow.Closed += (_, _) =>
+            {
+                _logWindow = null;
+                UpdateLogSummary();
+            };
+        }
+
+        _logWindow.Show();
+        _logWindow.Activate();
+        UpdateLogSummary();
+    }
+
+    private void ShowCursorDashboardLogin()
+    {
+        if (_cursorDashboardLoginWindow is null)
+        {
+            _cursorDashboardLoginWindow = new CursorDashboardLoginWindow(_settingsService, _logService);
+            if (_overlayWindow?.IsVisible == true)
+            {
+                _cursorDashboardLoginWindow.Owner = _overlayWindow;
+            }
+
+            _cursorDashboardLoginWindow.Closed += (_, _) =>
+            {
+                _cursorDashboardLoginWindow = null;
+                _settings = _settingsService.Load();
+                UpdateLogSummary();
+                _ = ManualRefreshAsync();
+            };
+        }
+
+        _cursorDashboardLoginWindow.Show();
+        _cursorDashboardLoginWindow.Activate();
+    }
+
+    private void UpdateLogSummary()
+    {
+        _viewModel.SetLogSummary(_logService.RecentErrorCount);
+    }
+
+    private void Exit()
+    {
+        _cursorDashboardLoginWindow?.Close();
+        _logWindow?.Close();
+        _overlayWindow?.Close();
+        Dispose();
+        WpfApplication.Current.Shutdown();
+    }
+}

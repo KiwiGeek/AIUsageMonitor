@@ -1,0 +1,336 @@
+<Window x:Class="AIUsageMonitor.Views.UsageOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Seth's AI Usage Monitor"
+        Width="900"
+        Height="760"
+        MinWidth="520"
+        MinHeight="390"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        PreviewKeyDown="WindowOnPreviewKeyDown"
+        MouseLeftButtonDown="WindowOnMouseLeftButtonDown">
+    <Window.Resources>
+        <Style x:Key="IconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Foreground" Value="#E5E7EB" />
+            <Setter Property="Background" Value="#232733" />
+            <Setter Property="BorderBrush" Value="#343A46" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#2F3542" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#3B4252" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="UsageProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="9" />
+            <Setter Property="Minimum" Value="0" />
+            <Setter Property="Maximum" Value="100" />
+            <Setter Property="Background" Value="#242832" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid x:Name="PART_Track" ClipToBounds="True">
+                            <Border Background="{TemplateBinding Background}"
+                                    CornerRadius="5" />
+                            <Border x:Name="PART_Indicator"
+                                    HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}"
+                                    CornerRadius="5" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="WindowRoot"
+          Background="#01000000">
+        <Viewbox Stretch="Uniform"
+                 StretchDirection="Both">
+            <Grid Width="900"
+                  Height="760">
+                <Border Margin="18"
+                        Padding="24"
+                        Background="#FF15171D"
+                        BorderBrush="#303540"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="30"
+                                          Direction="270"
+                                          ShadowDepth="8"
+                                          Opacity="0.42"
+                                          Color="#000000" />
+                    </Border.Effect>
+
+                    <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0"
+                  MouseLeftButtonDown="HeaderOnMouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Seth's AI Usage Monitor"
+                                   Foreground="#F9FAFB"
+                                   FontSize="28"
+                                   FontWeight="SemiBold" />
+                        <Border Margin="12,3,0,0"
+                                Padding="8,3"
+                                VerticalAlignment="Center"
+                                Background="#232733"
+                                BorderBrush="#343A46"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <TextBlock Text="{Binding AppVersionText}"
+                                       Foreground="#A8AFBA"
+                                       FontSize="12"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="{Binding GeneratedAtText}"
+                               Margin="0,4,0,0"
+                               Foreground="#A8AFBA"
+                               FontSize="13" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Top">
+                    <Button Content="⚙"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Settings"
+                            Click="SettingsButtonOnClick" />
+                    <Button Content="↻"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Refresh now"
+                            Click="ReloadButtonOnClick" />
+                    <Button Content="!"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Logs"
+                            Click="LogsButtonOnClick" />
+                    <Button Content="×"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Hide"
+                            Click="HideButtonOnClick" />
+                </StackPanel>
+            </Grid>
+
+            <Border Grid.Row="1"
+                    Margin="0,18,0,0"
+                    Padding="12,10"
+                    Background="#2B1B20"
+                    BorderBrush="#7F1D1D"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Visibility="{Binding HasError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="#FCA5A5"
+                           FontSize="13"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <ItemsControl Grid.Row="2"
+                          Margin="0,18,0,0"
+                          ItemsSource="{Binding Providers}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="2" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,14,14"
+                                Padding="18"
+                                Background="#FF1D2028"
+                                BorderBrush="#303641"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Width="4"
+                                            Height="28"
+                                            Margin="0,0,12,0"
+                                            Background="{Binding AccentBrush}"
+                                            CornerRadius="2" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               Margin="0,0,12,0"
+                                               Foreground="#F3F4F6"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="2"
+                                                HorizontalAlignment="Right">
+                                        <Border Padding="9,4"
+                                                Background="{Binding OverallStatusBackground}"
+                                                CornerRadius="8">
+                                            <TextBlock Text="{Binding OverallStatusLabel}"
+                                                       Foreground="{Binding OverallStatusBrush}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold" />
+                                        </Border>
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Text="{Binding CheckedText}"
+                                                   Foreground="#8B93A1"
+                                                   FontSize="11"
+                                                   HorizontalAlignment="Right" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Grid.Row="1"
+                                            Margin="0,18,0,0">
+                                    <TextBlock Text="{Binding StatusMessage}"
+                                               Foreground="#A8AFBA"
+                                               FontSize="13"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding IsUnavailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                    <ItemsControl ItemsSource="{Binding Windows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,0,0,18">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding Title}"
+                                                                   Foreground="#D6DAE1"
+                                                                   FontSize="13"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding RemainingText}"
+                                                                   Foreground="#F9FAFB"
+                                                                   FontSize="13"
+                                                                   FontWeight="SemiBold" />
+                                                    </Grid>
+
+                                                    <ProgressBar Margin="0,8,0,0"
+                                                                 Style="{StaticResource UsageProgressBarStyle}"
+                                                                 Value="{Binding RemainingPercent, Mode=OneWay}"
+                                                                 Foreground="{Binding ProgressBrush}" />
+
+                                                    <Grid Margin="0,8,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding LimitText}"
+                                                                   Foreground="#A8AFBA"
+                                                                   FontSize="12" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding ResetText}"
+                                                                   Foreground="#A8AFBA"
+                                                                   FontSize="12" />
+                                                    </Grid>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid Grid.Row="3"
+                  Margin="0,4,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding SourcePathText}"
+                           Foreground="#6B7280"
+                           FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1"
+                           Margin="16,0,0,0"
+                           Text="{Binding LogSummaryText}"
+                           Foreground="#6B7280"
+                           FontSize="11" />
+                <TextBlock Grid.Column="2"
+                           Margin="16,0,0,0"
+                           Text="{Binding AutoRefreshText}"
+                           Foreground="#6B7280"
+                           FontSize="11" />
+            </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Viewbox>
+
+        <Thumb Width="30"
+               Height="30"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Bottom"
+               Cursor="SizeNWSE"
+               ToolTip="Resize"
+               DragDelta="ResizeThumbOnDragDelta">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Grid Background="#01000000">
+                        <Path Data="M 23,7 L 7,23 M 23,13 L 13,23 M 23,19 L 19,23"
+                              Stroke="#8B93A1"
+                              StrokeThickness="1.6"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                    </Grid>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+    </Grid>
+</Window>

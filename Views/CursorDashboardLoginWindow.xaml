@@ -1,0 +1,60 @@
+<Window x:Class="AIUsageMonitor.Views.CursorDashboardLoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Cursor Dashboard Login"
+        Width="1100"
+        Height="760"
+        WindowStartupLocation="CenterOwner"
+        Background="#15171D"
+        Foreground="#F9FAFB"
+        Icon="/Assets/AppIcon.ico"
+        ShowInTaskbar="False">
+    <Grid Background="#15171D">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Margin="16,14,16,12">
+            <TextBlock Text="Log into Cursor, open the usage dashboard, then save the dashboard login."
+                       Foreground="#D6DAE1"
+                       FontSize="13"
+                       VerticalAlignment="Center" />
+        </DockPanel>
+
+        <Border Grid.Row="1"
+                Margin="16,0"
+                BorderBrush="#343A46"
+                BorderThickness="1">
+            <wv2:WebView2 x:Name="DashboardWebView" />
+        </Border>
+
+        <Grid Grid.Row="2"
+              Margin="16,12,16,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock x:Name="StatusTextBlock"
+                       Foreground="#8B93A1"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Width="150"
+                    Height="34"
+                    Margin="12,0,8,0"
+                    Content="Save Login"
+                    Click="SaveLoginButtonOnClick" />
+            <Button Grid.Column="2"
+                    Width="92"
+                    Height="34"
+                    Content="Close"
+                    Click="CloseButtonOnClick" />
+        </Grid>
+    </Grid>
+</Window>

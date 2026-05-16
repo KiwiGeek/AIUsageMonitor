@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "stop-existing",
+      "command": "powershell",
+      "type": "process",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Get-Process AIUsageMonitor -ErrorAction SilentlyContinue | Stop-Process"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "dependsOn": "stop-existing",
+      "args": [
+        "build",
+        "${workspaceFolder}/AIUsageMonitor.csproj"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "run",
+      "command": "dotnet",
+      "type": "process",
+      "dependsOn": "stop-existing",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/AIUsageMonitor.csproj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile",
+      "group": "test"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+<Window x:Class="AIUsageMonitor.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Seth's AI Usage Monitor Settings"
+        Width="540"
+        Height="620"
+        MinWidth="500"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="#15171D"
+        Foreground="#F9FAFB"
+        Icon="/Assets/AppIcon.ico"
+        ShowInTaskbar="False">
+    <Border Padding="22"
+            Background="#15171D">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Settings"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       Foreground="#F9FAFB" />
+
+            <ScrollViewer Grid.Row="1"
+                          Margin="0,22,0,16"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="Update interval"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#D6DAE1" />
+                        <DockPanel Margin="0,8,0,0">
+                            <TextBox x:Name="UpdateIntervalTextBox"
+                                     Width="96"
+                                     Height="34"
+                                     Padding="8,5"
+                                     VerticalContentAlignment="Center"
+                                     Background="#1D2028"
+                                     BorderBrush="#343A46"
+                                     Foreground="#F9FAFB"
+                                     CaretBrush="#F9FAFB"
+                                     FontSize="14" />
+                            <TextBlock Margin="10,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="minutes"
+                                       Foreground="#A8AFBA"
+                                       FontSize="13" />
+                        </DockPanel>
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="Default is 20. Manual refresh still runs immediately."
+                                   Foreground="#8B93A1"
+                                   FontSize="12" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,22,0,0">
+                        <TextBlock Text="Cursor Admin API"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#D6DAE1" />
+                        <TextBox x:Name="CursorApiKeyTextBox"
+                                 Height="34"
+                                 Margin="0,8,0,0"
+                                 Padding="8,5"
+                                 VerticalContentAlignment="Center"
+                                 Background="#1D2028"
+                                 BorderBrush="#343A46"
+                                 Foreground="#F9FAFB"
+                                 CaretBrush="#F9FAFB"
+                                 FontSize="13" />
+                        <DockPanel Margin="0,10,0,0">
+                            <TextBox x:Name="CursorBudgetTextBox"
+                                     Width="96"
+                                     Height="34"
+                                     Padding="8,5"
+                                     VerticalContentAlignment="Center"
+                                     Background="#1D2028"
+                                     BorderBrush="#343A46"
+                                     Foreground="#F9FAFB"
+                                     CaretBrush="#F9FAFB"
+                                     FontSize="14" />
+                            <TextBlock Margin="10,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="monthly included budget dollars"
+                                       Foreground="#A8AFBA"
+                                       FontSize="13" />
+                        </DockPanel>
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="Teams Admin API keys start with key_. Personal crsr_ keys will not work here."
+                                   Foreground="#8B93A1"
+                                   FontSize="12" />
+                        <Button Width="160"
+                                Height="34"
+                                Margin="0,12,0,0"
+                                HorizontalAlignment="Left"
+                                Content="Set up Cursor login"
+                                Click="CursorLoginButtonOnClick" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="Use Cursor login for personal Pro, Pro+, Ultra, or Max accounts."
+                                   Foreground="#8B93A1"
+                                   FontSize="12" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,22,0,0">
+                        <CheckBox x:Name="ClaudeStatusExporterCheckBox"
+                                  Content="Install Claude Code status exporter"
+                                  Foreground="#D6DAE1"
+                                  FontSize="13" />
+                        <CheckBox x:Name="AutoRunAtLoginCheckBox"
+                                  Margin="0,12,0,0"
+                                  Content="Auto run at login"
+                                  Foreground="#D6DAE1"
+                                  FontSize="13" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="ValidationTextBlock"
+                               Margin="0,16,0,0"
+                               TextWrapping="Wrap"
+                               Foreground="#FCA5A5"
+                               FontSize="12" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button Width="92"
+                        Height="34"
+                        Margin="0,0,8,0"
+                        Content="Cancel"
+                        Click="CancelButtonOnClick" />
+                <Button Width="92"
+                        Height="34"
+                        Content="Save"
+                        Click="SaveButtonOnClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

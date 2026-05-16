@@ -1,0 +1,23 @@
+bin/
+obj/
+.vs/
+
+# Local runtime state and credentials
+monitor.settings.json
+monitor.log.jsonl
+*.log
+*.jsonl
+.claude/
+
+# Release output
+artifacts/
+build/
+publish/
+release/
+final/
+*.zip
+
+# User/editor files
+*.user
+*.suo
+*.userosscache
