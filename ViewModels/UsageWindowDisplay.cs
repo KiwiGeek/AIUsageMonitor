@@ -20,7 +20,7 @@ public sealed class UsageWindowDisplay
         RemainingText = $"{usageWindow.RemainingPercent:0}% left";
         LimitText = string.IsNullOrWhiteSpace(Detail) ? UsedPercentText : Detail;
         ResetText = usageWindow.ResetAt is { } resetAt
-            ? $"Resets {resetAt.ToLocalTime():MMM d, h:mm tt}"
+            ? FormatResetText(resetAt)
             : "Reset time unavailable";
         ResetRelativeText = usageWindow.ResetAt is { } relativeResetAt
             ? FormatResetRelativeText(relativeResetAt)
@@ -74,7 +74,7 @@ public sealed class UsageWindowDisplay
 
         if (remaining.TotalMinutes <= -1)
         {
-            return "overdue";
+            return "reset passed";
         }
 
         if (remaining.TotalMinutes < 1)
@@ -102,6 +102,11 @@ public sealed class UsageWindowDisplay
     {
         var remaining = resetAt.ToLocalTime() - DateTimeOffset.Now;
 
+        if (remaining.TotalMinutes <= -1)
+        {
+            return UsageBrushes.FrozenBrush("#A8AFBA");
+        }
+
         if (remaining.TotalMinutes <= 0)
         {
             return UsageBrushes.FrozenBrush("#FB7185");
@@ -113,5 +118,12 @@ public sealed class UsageWindowDisplay
         }
 
         return UsageBrushes.FrozenBrush("#93C5FD");
+    }
+
+    private static string FormatResetText(DateTimeOffset resetAt)
+    {
+        var localResetAt = resetAt.ToLocalTime();
+        var prefix = localResetAt <= DateTimeOffset.Now ? "Reset" : "Resets";
+        return $"{prefix} {localResetAt:MMM d, h:mm tt}";
     }
 }

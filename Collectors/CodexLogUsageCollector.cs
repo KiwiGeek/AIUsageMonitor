@@ -6,19 +6,82 @@ namespace AIUsageMonitor.Collectors;
 
 public sealed class CodexLogUsageCollector : IUsageCollector
 {
+    private static readonly TimeSpan FreshSnapshotMaxAge = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan CommandFailureBackoff = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan CommandUnavailableBackoff = TimeSpan.FromHours(1);
+    private static readonly TimeSpan UnknownExhaustionBackoff = TimeSpan.FromMinutes(30);
+    private DateTimeOffset _nextCommandRefreshAt = DateTimeOffset.MinValue;
+    private string _commandRefreshPauseMessage = string.Empty;
+
     public string ProviderName => "OpenAI";
 
-    public Task<ProviderUsage> CollectAsync(CancellationToken cancellationToken)
+    public async Task<ProviderUsage> CollectAsync(CancellationToken cancellationToken)
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var sessionsDirectory = Path.Combine(home, ".codex", "sessions");
+        var latest = TryReadLatestSnapshot(sessionsDirectory, cancellationToken);
+        var now = DateTimeOffset.Now;
+        var refreshNote = string.Empty;
 
+        if (GetExhaustionRetryAt(latest, now) is { } exhaustionRetryAt)
+        {
+            refreshNote = $"Codex quota appears exhausted; refresh command paused until {exhaustionRetryAt.ToLocalTime():MMM d, h:mm tt}.";
+            PauseCommandRefresh(exhaustionRetryAt, refreshNote);
+        }
+        else if (ShouldRunCommandRefresh(latest, now))
+        {
+            var previousTimestamp = latest?.Timestamp;
+            var refreshResult = await CliQuotaRefreshRunner.RefreshCodexAsync(cancellationToken);
+            latest = TryReadLatestSnapshot(sessionsDirectory, cancellationToken);
+            now = DateTimeOffset.Now;
+
+            if (refreshResult.Succeeded)
+            {
+                _nextCommandRefreshAt = now.Add(FreshSnapshotMaxAge);
+                _commandRefreshPauseMessage = string.Empty;
+
+                if (latest is null || previousTimestamp is not null && latest.Timestamp <= previousTimestamp.Value)
+                {
+                    refreshNote = "Codex refresh command ran, but no newer quota snapshot was written.";
+                }
+            }
+            else
+            {
+                var retryAt = refreshResult.IsQuotaExhausted
+                    ? GetExhaustionRetryAt(latest, now) ?? now.Add(UnknownExhaustionBackoff)
+                    : now.Add(refreshResult.CommandFound ? CommandFailureBackoff : CommandUnavailableBackoff);
+
+                PauseCommandRefresh(retryAt, refreshResult.Message);
+                refreshNote = $"{refreshResult.Message} Next command retry after {retryAt.ToLocalTime():h:mm tt}.";
+            }
+        }
+        else if (_nextCommandRefreshAt > now && !string.IsNullOrWhiteSpace(_commandRefreshPauseMessage))
+        {
+            refreshNote = $"{_commandRefreshPauseMessage} Next command retry after {_nextCommandRefreshAt.ToLocalTime():h:mm tt}.";
+        }
+
+        if (latest is null)
+        {
+            var message = Directory.Exists(sessionsDirectory)
+                ? "No Codex quota snapshots were found in local session logs."
+                : "No Codex session directory found.";
+
+            if (!string.IsNullOrWhiteSpace(refreshNote))
+            {
+                message += " " + refreshNote;
+            }
+
+            return ProviderUsageFactory.Unavailable(ProviderName, message, sessionsDirectory);
+        }
+
+        return BuildProviderUsage(latest, refreshNote);
+    }
+
+    private static CodexRateLimitSnapshot? TryReadLatestSnapshot(string sessionsDirectory, CancellationToken cancellationToken)
+    {
         if (!Directory.Exists(sessionsDirectory))
         {
-            return Task.FromResult(ProviderUsageFactory.Unavailable(
-                ProviderName,
-                "No Codex session directory found.",
-                sessionsDirectory));
+            return null;
         }
 
         CodexRateLimitSnapshot? latest = null;
@@ -44,14 +107,11 @@ public sealed class CodexLogUsageCollector : IUsageCollector
             }
         }
 
-        if (latest is null)
-        {
-            return Task.FromResult(ProviderUsageFactory.Unavailable(
-                ProviderName,
-                "No Codex quota snapshots were found in local session logs.",
-                sessionsDirectory));
-        }
+        return latest;
+    }
 
+    private ProviderUsage BuildProviderUsage(CodexRateLimitSnapshot latest, string refreshNote)
+    {
         var windows = new List<UsageWindow>();
 
         if (latest.Primary is not null)
@@ -71,17 +131,23 @@ public sealed class CodexLogUsageCollector : IUsageCollector
         }
 
         var planName = PlanNameFormatter.Format(latest.PlanType);
+        var statusMessage = string.IsNullOrWhiteSpace(planName)
+            ? "Codex quota from latest local token-count event."
+            : $"Codex {planName} quota from latest local token-count event.";
 
-        return Task.FromResult(new ProviderUsage
+        if (!string.IsNullOrWhiteSpace(refreshNote))
+        {
+            statusMessage += " " + refreshNote;
+        }
+
+        return new ProviderUsage
         {
             Name = ProviderName,
             PlanName = planName,
             Source = "Codex local session logs",
-            StatusMessage = string.IsNullOrWhiteSpace(planName)
-                ? "Codex quota from latest local token-count event."
-                : $"Codex {planName} quota from latest local token-count event.",
+            StatusMessage = statusMessage,
             Windows = windows
-        });
+        };
     }
 
     private static IEnumerable<string> EnumerateRecentJsonlFiles(string sessionsDirectory)
@@ -188,6 +254,55 @@ public sealed class CodexLogUsageCollector : IUsageCollector
             > 0 => $"{windowMinutes}m",
             _ => "Usage"
         };
+    }
+
+    private bool ShouldRunCommandRefresh(CodexRateLimitSnapshot? latest, DateTimeOffset now)
+    {
+        if (_nextCommandRefreshAt > now)
+        {
+            return false;
+        }
+
+        return latest is null ||
+            now - latest.Timestamp.ToLocalTime() > FreshSnapshotMaxAge ||
+            EnumerateWindows(latest).Any(window => window.ResetsAt is { } resetAt && resetAt.ToLocalTime() <= now.AddMinutes(-1));
+    }
+
+    private static DateTimeOffset? GetExhaustionRetryAt(CodexRateLimitSnapshot? latest, DateTimeOffset now)
+    {
+        if (latest is null)
+        {
+            return null;
+        }
+
+        var retryAt = EnumerateWindows(latest)
+            .Where(window => window.UsedPercent >= 99.9 && window.ResetsAt is not null && window.ResetsAt.Value.ToLocalTime() > now)
+            .Select(window => window.ResetsAt!.Value.ToLocalTime())
+            .DefaultIfEmpty()
+            .Max();
+
+        return retryAt == default ? null : retryAt;
+    }
+
+    private static IEnumerable<CodexWindow> EnumerateWindows(CodexRateLimitSnapshot snapshot)
+    {
+        if (snapshot.Primary is not null)
+        {
+            yield return snapshot.Primary;
+        }
+
+        if (snapshot.Secondary is not null)
+        {
+            yield return snapshot.Secondary;
+        }
+    }
+
+    private void PauseCommandRefresh(DateTimeOffset retryAt, string message)
+    {
+        _nextCommandRefreshAt = retryAt <= DateTimeOffset.Now
+            ? DateTimeOffset.Now.Add(CommandFailureBackoff)
+            : retryAt;
+        _commandRefreshPauseMessage = message;
     }
 
     private sealed record CodexRateLimitSnapshot(

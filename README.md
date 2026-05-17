@@ -16,7 +16,9 @@ The overlay changes content density as you resize it instead of simply shrinking
 
 Windows tray app for checking remaining AI subscription usage across Anthropic, OpenAI/Codex, Gemini, and Cursor.
 
-This is stupid easy to make, so you should probably just be using your AI to make your own! I like to put things like this on Github though to stay organized and have reliable backups.
+Warning: refreshing stale Anthropic/OpenAI data may run a tiny CLI probe, which can consume a small amount of your plan usage.
+
+This is app was stupid easy to make, so you have a need for it, you undoubtely can just have AI make your own.  Even so, I like to put things like this on Github though to stay organized and have reliable source backups.
 
 - Always-on-top overlay with percentage remaining, reset times, plan names, and per-provider last checked status.
 - Tray controls for show/hide, refresh now, settings, logs, and exit.

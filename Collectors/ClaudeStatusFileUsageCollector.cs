@@ -13,6 +13,12 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
     private const string LegacyExportName = "apimonitor-usage.json";
     private const string ExporterScriptName = "ai-usage-monitor-statusline.ps1";
     private static readonly TimeSpan LocalExportMaxAge = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan CommandSuccessCooldown = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan CommandFailureBackoff = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan CommandUnavailableBackoff = TimeSpan.FromHours(1);
+    private static readonly TimeSpan UnknownExhaustionBackoff = TimeSpan.FromMinutes(30);
+    private DateTimeOffset _nextCommandRefreshAt = DateTimeOffset.MinValue;
+    private string _commandRefreshPauseMessage = string.Empty;
 
     private static readonly HttpClient HttpClient = new()
     {
@@ -36,7 +42,100 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
             Path.Combine(claudeDirectory, "usage-status.md")
         };
 
+        var localUsage = TryReadLocalUsage(candidatePaths, planName, cancellationToken);
+
+        var oauthUsage = await TryCollectOAuthUsageAsync(claudeDirectory, account, cancellationToken);
+        if (oauthUsage is not null && !oauthUsage.IsUnavailable)
+        {
+            return oauthUsage;
+        }
+
+        if (localUsage.FreshUsage is not null)
+        {
+            return localUsage.FreshUsage;
+        }
+
+        var refreshNote = string.Empty;
+        var now = DateTimeOffset.Now;
+
+        if (_nextCommandRefreshAt <= now)
+        {
+            var refreshResult = await CliQuotaRefreshRunner.RefreshClaudeAsync(cancellationToken);
+            var refreshedLocalUsage = TryReadLocalUsage(candidatePaths, planName, cancellationToken);
+            now = DateTimeOffset.Now;
+
+            if (refreshResult.Succeeded)
+            {
+                _nextCommandRefreshAt = now.Add(CommandSuccessCooldown);
+                _commandRefreshPauseMessage = string.Empty;
+
+                if (refreshedLocalUsage.FreshUsage is not null)
+                {
+                    return WithStatusNote(refreshedLocalUsage.FreshUsage, "Refreshed by Claude command.");
+                }
+
+                refreshNote = "Claude refresh command ran, but no fresh status export was written.";
+                localUsage = refreshedLocalUsage;
+            }
+            else
+            {
+                var retryAt = refreshResult.IsQuotaExhausted
+                    ? GetExhaustionRetryAt(localUsage.StaleUsage, now) ?? now.Add(UnknownExhaustionBackoff)
+                    : now.Add(refreshResult.CommandFound ? CommandFailureBackoff : CommandUnavailableBackoff);
+
+                PauseCommandRefresh(retryAt, refreshResult.Message);
+                refreshNote = $"{refreshResult.Message} Next command retry after {retryAt.ToLocalTime():h:mm tt}.";
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(_commandRefreshPauseMessage))
+        {
+            refreshNote = $"{_commandRefreshPauseMessage} Next command retry after {_nextCommandRefreshAt.ToLocalTime():h:mm tt}.";
+        }
+
+        if (oauthUsage is not null)
+        {
+            return WithStatusNote(oauthUsage, refreshNote);
+        }
+
+        if (localUsage.StaleExport is not null)
+        {
+            var staleMessage = $"Claude status export is stale; last update was {FormatRelativeAge(localUsage.StaleExport.UpdatedAt)}. Start Claude Code and send one prompt, or wait for OAuth usage collection to recover.";
+            if (!string.IsNullOrWhiteSpace(refreshNote))
+            {
+                staleMessage += " " + refreshNote;
+            }
+
+            return ProviderUsageFactory.Unavailable(
+                ProviderName,
+                staleMessage,
+                localUsage.StaleExport.Path,
+                planName);
+        }
+
+        var exporterPath = Path.Combine(claudeDirectory, ExporterScriptName);
+        var message = File.Exists(exporterPath)
+            ? "Claude status exporter is installed, but no usage export exists yet. Start Claude Code interactively and send one prompt so the status line receives rate_limits."
+            : $"No Claude quota status file found. Configure Claude Code status-line/proxy output to write ~/.claude/{ExportName}.";
+
+        if (!string.IsNullOrWhiteSpace(refreshNote))
+        {
+            message += " " + refreshNote;
+        }
+
+        return ProviderUsageFactory.Unavailable(
+            ProviderName,
+            message,
+            claudeDirectory,
+            planName);
+    }
+
+    private static LocalUsageReadResult TryReadLocalUsage(
+        IReadOnlyList<string> candidatePaths,
+        string planName,
+        CancellationToken cancellationToken)
+    {
         ProviderUsage? freshLocalUsage = null;
+        ProviderUsage? staleLocalUsage = null;
         StaleLocalExport? staleLocalExport = null;
 
         foreach (var path in candidatePaths)
@@ -49,19 +148,20 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
             }
 
             var text = File.ReadAllText(path);
+            var usage = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                ? TryParseJson(text, path, planName)
+                : TryParseText(text, path, planName);
+
             if (!IsFreshLocalExport(path, text, out var exportUpdatedAt))
             {
                 if (staleLocalExport is null || exportUpdatedAt > staleLocalExport.UpdatedAt)
                 {
                     staleLocalExport = new StaleLocalExport(path, exportUpdatedAt);
+                    staleLocalUsage = usage is not null && !usage.IsUnavailable ? usage : staleLocalUsage;
                 }
 
                 continue;
             }
-
-            var usage = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                ? TryParseJson(text, path, planName)
-                : TryParseText(text, path, planName);
 
             if (usage is not null && !usage.IsUnavailable)
             {
@@ -70,41 +170,7 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
             }
         }
 
-        var oauthUsage = await TryCollectOAuthUsageAsync(claudeDirectory, account, cancellationToken);
-        if (oauthUsage is not null && !oauthUsage.IsUnavailable)
-        {
-            return oauthUsage;
-        }
-
-        if (freshLocalUsage is not null)
-        {
-            return freshLocalUsage;
-        }
-
-        if (oauthUsage is not null)
-        {
-            return oauthUsage;
-        }
-
-        if (staleLocalExport is not null)
-        {
-            return ProviderUsageFactory.Unavailable(
-                ProviderName,
-                $"Claude status export is stale; last update was {FormatRelativeAge(staleLocalExport.UpdatedAt)}. Start Claude Code and send one prompt, or wait for OAuth usage collection to recover.",
-                staleLocalExport.Path,
-                planName);
-        }
-
-        var exporterPath = Path.Combine(claudeDirectory, ExporterScriptName);
-        var message = File.Exists(exporterPath)
-            ? "Claude status exporter is installed, but no usage export exists yet. Start Claude Code interactively and send one prompt so the status line receives rate_limits."
-            : $"No Claude quota status file found. Configure Claude Code status-line/proxy output to write ~/.claude/{ExportName}.";
-
-        return ProviderUsageFactory.Unavailable(
-            ProviderName,
-            message,
-            claudeDirectory,
-            planName);
+        return new LocalUsageReadResult(freshLocalUsage, staleLocalUsage, staleLocalExport);
     }
 
     private static ProviderUsage? TryParseJson(string text, string path, string fallbackPlanName)
@@ -464,6 +530,54 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
 
         return null;
     }
+
+    private static DateTimeOffset? GetExhaustionRetryAt(ProviderUsage? usage, DateTimeOffset now)
+    {
+        if (usage is null)
+        {
+            return null;
+        }
+
+        var retryAt = usage.Windows
+            .Where(window => window.RemainingPercent <= 0.1 && window.ResetAt is not null && window.ResetAt.Value.ToLocalTime() > now)
+            .Select(window => window.ResetAt!.Value.ToLocalTime())
+            .DefaultIfEmpty()
+            .Max();
+
+        return retryAt == default ? null : retryAt;
+    }
+
+    private static ProviderUsage WithStatusNote(ProviderUsage usage, string note)
+    {
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            return usage;
+        }
+
+        return new ProviderUsage
+        {
+            Name = usage.Name,
+            PlanName = usage.PlanName,
+            Source = usage.Source,
+            StatusMessage = usage.StatusMessage + " " + note,
+            IsUnavailable = usage.IsUnavailable,
+            LastCheckedAt = usage.LastCheckedAt,
+            Windows = usage.Windows
+        };
+    }
+
+    private void PauseCommandRefresh(DateTimeOffset retryAt, string message)
+    {
+        _nextCommandRefreshAt = retryAt <= DateTimeOffset.Now
+            ? DateTimeOffset.Now.Add(CommandFailureBackoff)
+            : retryAt;
+        _commandRefreshPauseMessage = message;
+    }
+
+    private sealed record LocalUsageReadResult(
+        ProviderUsage? FreshUsage,
+        ProviderUsage? StaleUsage,
+        StaleLocalExport? StaleExport);
 
     private sealed record ClaudeAccount(string? AccessToken, string PlanName);
 
