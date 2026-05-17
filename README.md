@@ -1,6 +1,12 @@
 # Seth's AI Usage Monitor
 
-![Screenshot](docs/screenshot.png)
+The overlay changes content density as you resize it instead of simply shrinking the same layout.
+
+![Full detail overlay](docs/screenshot-full.png)
+
+![Compact summary overlay](docs/screenshot-compact.png)
+
+![Tiny strip overlay](docs/screenshot-mini-strip.png)
 
 # Download #
 

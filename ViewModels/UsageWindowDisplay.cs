@@ -22,6 +22,12 @@ public sealed class UsageWindowDisplay
         ResetText = usageWindow.ResetAt is { } resetAt
             ? $"Resets {resetAt.ToLocalTime():MMM d, h:mm tt}"
             : "Reset time unavailable";
+        ResetRelativeText = usageWindow.ResetAt is { } relativeResetAt
+            ? FormatResetRelativeText(relativeResetAt)
+            : string.Empty;
+        ResetRelativeBrush = usageWindow.ResetAt is { } relativeBrushResetAt
+            ? ResetRelativeBrushFor(relativeBrushResetAt)
+            : UsageBrushes.FrozenBrush("#A8AFBA");
         StatusLabel = status.Label;
         StatusBrush = status.Foreground;
         StatusBackground = status.Background;
@@ -48,6 +54,10 @@ public sealed class UsageWindowDisplay
 
     public string ResetText { get; }
 
+    public string ResetRelativeText { get; }
+
+    public MediaBrush ResetRelativeBrush { get; }
+
     public string Detail { get; }
 
     public string StatusLabel { get; }
@@ -57,4 +67,51 @@ public sealed class UsageWindowDisplay
     public MediaBrush StatusBackground { get; }
 
     public MediaBrush ProgressBrush { get; }
+
+    private static string FormatResetRelativeText(DateTimeOffset resetAt)
+    {
+        var remaining = resetAt.ToLocalTime() - DateTimeOffset.Now;
+
+        if (remaining.TotalMinutes <= -1)
+        {
+            return "overdue";
+        }
+
+        if (remaining.TotalMinutes < 1)
+        {
+            return "now";
+        }
+
+        if (remaining.TotalMinutes < 90)
+        {
+            var minutes = Math.Max(1, (int)Math.Round(remaining.TotalMinutes));
+            return minutes == 1 ? "in 1 minute" : $"in {minutes} minutes";
+        }
+
+        if (remaining.TotalHours < 36)
+        {
+            var hours = Math.Max(1, (int)Math.Round(remaining.TotalHours));
+            return hours == 1 ? "in 1 hour" : $"in {hours} hours";
+        }
+
+        var days = Math.Max(1, (int)Math.Round(remaining.TotalDays));
+        return days == 1 ? "in 1 day" : $"in {days} days";
+    }
+
+    private static MediaBrush ResetRelativeBrushFor(DateTimeOffset resetAt)
+    {
+        var remaining = resetAt.ToLocalTime() - DateTimeOffset.Now;
+
+        if (remaining.TotalMinutes <= 0)
+        {
+            return UsageBrushes.FrozenBrush("#FB7185");
+        }
+
+        if (remaining.TotalHours <= 2)
+        {
+            return UsageBrushes.FrozenBrush("#FBBF24");
+        }
+
+        return UsageBrushes.FrozenBrush("#93C5FD");
+    }
 }

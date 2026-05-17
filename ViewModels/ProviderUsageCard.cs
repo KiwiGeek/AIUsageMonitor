@@ -9,29 +9,40 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
 {
     private bool _isChecking;
     private string _checkedText = string.Empty;
+    private readonly string _summaryText;
 
     public ProviderUsageCard(ProviderUsage usage)
     {
-        Name = FormatDisplayName(usage.Name, usage.PlanName);
+        ShortName = string.IsNullOrWhiteSpace(usage.Name) ? "Provider" : usage.Name.Trim();
+        Name = FormatDisplayName(ShortName, usage.PlanName);
         Source = usage.Source;
         StatusMessage = usage.StatusMessage;
         IsUnavailable = usage.IsUnavailable;
         LastCheckedAt = usage.LastCheckedAt;
         AccentBrush = UsageBrushes.ProviderAccent(usage.Name);
         Windows = usage.Windows.Select(window => new UsageWindowDisplay(window)).ToList();
+        PrimaryRemainingPercent = Windows.Count == 0
+            ? 0
+            : Windows.Min(window => window.RemainingPercent);
 
         var status = usage.IsUnavailable || Windows.Count == 0
             ? UsageStatus.Unavailable
-            : UsageStatus.FromRemainingPercent(Windows.Min(window => window.RemainingPercent));
+            : UsageStatus.FromRemainingPercent(PrimaryRemainingPercent);
         OverallStatusLabel = status.Label;
         OverallStatusBrush = status.Foreground;
         OverallStatusBackground = status.Background;
+        SummaryProgressBrush = status.Foreground;
+        _summaryText = usage.IsUnavailable || Windows.Count == 0
+            ? $"{ShortName} - unavailable"
+            : $"{ShortName} - {PrimaryRemainingPercent:0}%";
         RefreshCheckedText();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public string Name { get; }
+
+    public string ShortName { get; }
 
     public string Source { get; }
 
@@ -44,7 +55,13 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
     public bool IsChecking
     {
         get => _isChecking;
-        private set => SetField(ref _isChecking, value);
+        private set
+        {
+            if (SetField(ref _isChecking, value))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
+            }
+        }
     }
 
     public string CheckedText
@@ -54,6 +71,12 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
     }
 
     public bool HasWindows => Windows.Count > 0;
+
+    public double PrimaryRemainingPercent { get; }
+
+    public string SummaryText => IsChecking ? $"{ShortName} - checking" : _summaryText;
+
+    public MediaBrush SummaryProgressBrush { get; }
 
     public MediaBrush AccentBrush { get; }
 

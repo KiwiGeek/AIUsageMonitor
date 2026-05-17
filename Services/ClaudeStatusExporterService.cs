@@ -8,6 +8,7 @@ namespace AIUsageMonitor.Services;
 public sealed class ClaudeStatusExporterService
 {
     private const string ScriptName = "ai-usage-monitor-statusline.ps1";
+    private const string LegacyScriptName = "apimonitor-statusline.ps1";
     private const string OutputName = "ai-usage-monitor-usage.json";
     private readonly AppLogService _logService;
 
@@ -38,7 +39,8 @@ public sealed class ClaudeStatusExporterService
         var statusLine = root["statusLine"] as JsonObject;
         var command = statusLine?["command"]?.GetValue<string>() ?? string.Empty;
         var alreadyConfigured = statusLine is not null &&
-            command.Contains(ScriptName, StringComparison.OrdinalIgnoreCase);
+            (command.Contains(ScriptName, StringComparison.OrdinalIgnoreCase) ||
+             command.Contains(LegacyScriptName, StringComparison.OrdinalIgnoreCase));
 
         if (statusLine is not null &&
             !alreadyConfigured)

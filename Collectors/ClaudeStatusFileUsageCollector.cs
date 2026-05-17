@@ -10,7 +10,9 @@ namespace AIUsageMonitor.Collectors;
 public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
 {
     private const string ExportName = "ai-usage-monitor-usage.json";
+    private const string LegacyExportName = "apimonitor-usage.json";
     private const string ExporterScriptName = "ai-usage-monitor-statusline.ps1";
+    private static readonly TimeSpan LocalExportMaxAge = TimeSpan.FromMinutes(10);
 
     private static readonly HttpClient HttpClient = new()
     {
@@ -29,9 +31,13 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         var candidatePaths = new[]
         {
             Path.Combine(claudeDirectory, ExportName),
+            Path.Combine(claudeDirectory, LegacyExportName),
             Path.Combine(claudeDirectory, "usage-status.json"),
             Path.Combine(claudeDirectory, "usage-status.md")
         };
+
+        ProviderUsage? freshLocalUsage = null;
+        StaleLocalExport? staleLocalExport = null;
 
         foreach (var path in candidatePaths)
         {
@@ -43,20 +49,50 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
             }
 
             var text = File.ReadAllText(path);
+            if (!IsFreshLocalExport(path, text, out var exportUpdatedAt))
+            {
+                if (staleLocalExport is null || exportUpdatedAt > staleLocalExport.UpdatedAt)
+                {
+                    staleLocalExport = new StaleLocalExport(path, exportUpdatedAt);
+                }
+
+                continue;
+            }
+
             var usage = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
                 ? TryParseJson(text, path, planName)
                 : TryParseText(text, path, planName);
 
             if (usage is not null && !usage.IsUnavailable)
             {
-                return usage;
+                freshLocalUsage = usage;
+                break;
             }
         }
 
         var oauthUsage = await TryCollectOAuthUsageAsync(claudeDirectory, account, cancellationToken);
+        if (oauthUsage is not null && !oauthUsage.IsUnavailable)
+        {
+            return oauthUsage;
+        }
+
+        if (freshLocalUsage is not null)
+        {
+            return freshLocalUsage;
+        }
+
         if (oauthUsage is not null)
         {
             return oauthUsage;
+        }
+
+        if (staleLocalExport is not null)
+        {
+            return ProviderUsageFactory.Unavailable(
+                ProviderName,
+                $"Claude status export is stale; last update was {FormatRelativeAge(staleLocalExport.UpdatedAt)}. Start Claude Code and send one prompt, or wait for OAuth usage collection to recover.",
+                staleLocalExport.Path,
+                planName);
         }
 
         var exporterPath = Path.Combine(claudeDirectory, ExporterScriptName);
@@ -119,6 +155,46 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         }
     }
 
+    private static bool IsFreshLocalExport(string path, string text, out DateTimeOffset exportUpdatedAt)
+    {
+        exportUpdatedAt = File.GetLastWriteTime(path);
+
+        if (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(text);
+                if (document.RootElement.TryGetProperty("generatedAt", out var generatedAtElement) &&
+                    generatedAtElement.ValueKind == JsonValueKind.String &&
+                    DateTimeOffset.TryParse(generatedAtElement.GetString(), out var generatedAt))
+                {
+                    exportUpdatedAt = generatedAt;
+                }
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        return DateTimeOffset.Now - exportUpdatedAt.ToLocalTime() <= LocalExportMaxAge;
+    }
+
+    private static string FormatRelativeAge(DateTimeOffset updatedAt)
+    {
+        var elapsed = DateTimeOffset.Now - updatedAt.ToLocalTime();
+        if (elapsed.TotalMinutes < 90)
+        {
+            return $"{Math.Max(1, (int)Math.Round(elapsed.TotalMinutes))} minutes ago";
+        }
+
+        if (elapsed.TotalHours < 36)
+        {
+            return $"{Math.Max(1, (int)Math.Round(elapsed.TotalHours))} hours ago";
+        }
+
+        return $"{Math.Max(1, (int)Math.Round(elapsed.TotalDays))} days ago";
+    }
+
     private static async Task<ProviderUsage?> TryCollectOAuthUsageAsync(
         string claudeDirectory,
         ClaudeAccount? account,
@@ -141,7 +217,39 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
 
-        using var response = await HttpClient.SendAsync(request, cancellationToken);
+        HttpResponseMessage response;
+        try
+        {
+            response = await HttpClient.SendAsync(request, cancellationToken);
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return ProviderUsageFactory.Unavailable(
+                "Anthropic",
+                "Claude OAuth usage endpoint timed out. Local status-line export will be used if it is fresh.",
+                credentialsPath,
+                account?.PlanName ?? string.Empty);
+        }
+        catch (HttpRequestException ex)
+        {
+            return ProviderUsageFactory.Unavailable(
+                "Anthropic",
+                $"Claude OAuth usage endpoint failed: {ex.Message}",
+                credentialsPath,
+                account?.PlanName ?? string.Empty);
+        }
+
+        using (response)
+        {
+        if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+        {
+            return ProviderUsageFactory.Unavailable(
+                "Anthropic",
+                "Claude OAuth usage endpoint rejected the cached Claude Code credentials. Local status-line export is preferred; start Claude Code once if no status export exists yet.",
+                credentialsPath,
+                account?.PlanName ?? string.Empty);
+        }
+
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -167,6 +275,7 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
                 : $"Claude {account.PlanName} quota from local Claude Code OAuth credentials.",
             Windows = windows
         };
+        }
     }
 
     private static ClaudeAccount? TryReadClaudeAccount(string credentialsPath)
@@ -357,6 +466,8 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
     }
 
     private sealed record ClaudeAccount(string? AccessToken, string PlanName);
+
+    private sealed record StaleLocalExport(string Path, DateTimeOffset UpdatedAt);
 
     [GeneratedRegex(@"5h\s*=\s*(?<used>\d+(?:\.\d+)?)%", RegexOptions.IgnoreCase)]
     private static partial Regex FiveHourRegex();

@@ -140,6 +140,7 @@ public sealed class TrayIconService : IDisposable
         _overlayWindow.ReloadRequested += (_, _) => _ = ManualRefreshAsync();
         _overlayWindow.SettingsRequested += (_, _) => ShowSettings();
         _overlayWindow.LogsRequested += (_, _) => ShowLogs();
+        _overlayWindow.ExitRequested += (_, _) => Exit();
         _overlayWindow.Closed += (_, _) => _overlayWindow = null;
     }
 

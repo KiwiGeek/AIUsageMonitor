@@ -4,8 +4,8 @@
         Title="Seth's AI Usage Monitor"
         Width="900"
         Height="760"
-        MinWidth="520"
-        MinHeight="390"
+        MinWidth="320"
+        MinHeight="68"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -16,6 +16,88 @@
         PreviewKeyDown="WindowOnPreviewKeyDown"
         MouseLeftButtonDown="WindowOnMouseLeftButtonDown">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="FullOnlyElementStyle" TargetType="{x:Type FrameworkElement}">
+            <Setter Property="Visibility" Value="Visible" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CompactOnlyElementStyle" TargetType="{x:Type FrameworkElement}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="MiniOnlyElementStyle" TargetType="{x:Type FrameworkElement}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="NotMiniElementStyle" TargetType="{x:Type FrameworkElement}">
+            <Setter Property="Visibility" Value="Visible" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OverlayChromeStyle" TargetType="{x:Type Border}">
+            <Setter Property="Margin" Value="18" />
+            <Setter Property="Padding" Value="24" />
+            <Setter Property="Background" Value="#FF15171D" />
+            <Setter Property="BorderBrush" Value="#303540" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                    <Setter Property="Margin" Value="12" />
+                    <Setter Property="Padding" Value="14" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                    <Setter Property="Margin" Value="8" />
+                    <Setter Property="Padding" Value="8" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ProviderCardStyle" TargetType="{x:Type Border}">
+            <Setter Property="Margin" Value="5" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="MinHeight" Value="190" />
+            <Setter Property="Background" Value="#FF1D2028" />
+            <Setter Property="BorderBrush" Value="#303641" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                    <Setter Property="Margin" Value="4" />
+                    <Setter Property="Padding" Value="10" />
+                    <Setter Property="MinHeight" Value="102" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                    <Setter Property="Margin" Value="3,2" />
+                    <Setter Property="Padding" Value="6,4" />
+                    <Setter Property="MinHeight" Value="0" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="IconButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="34" />
             <Setter Property="Height" Value="34" />
@@ -74,244 +156,387 @@
 
     <Grid x:Name="WindowRoot"
           Background="#01000000">
-        <Viewbox Stretch="Uniform"
-                 StretchDirection="Both">
-            <Grid Width="900"
-                  Height="760">
-                <Border Margin="18"
-                        Padding="24"
-                        Background="#FF15171D"
-                        BorderBrush="#303540"
+        <Grid.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Show Seth's AI Usage Monitor"
+                          Click="ShowMenuItemOnClick" />
+                <MenuItem Header="Refresh Now"
+                          Click="RefreshMenuItemOnClick" />
+                <MenuItem Header="Settings"
+                          Click="SettingsMenuItemOnClick" />
+                <MenuItem Header="Logs"
+                          Click="LogsMenuItemOnClick" />
+                <Separator />
+                <MenuItem Header="Exit"
+                          Click="ExitMenuItemOnClick" />
+            </ContextMenu>
+        </Grid.ContextMenu>
+
+        <Border x:Name="ChromeBorder"
+                Style="{StaticResource OverlayChromeStyle}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="30"
+                                  Direction="270"
+                                  ShadowDepth="8"
+                                  Opacity="0.42"
+                                  Color="#000000" />
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0"
+                      Style="{StaticResource NotMiniElementStyle}"
+                      MouseLeftButtonDown="HeaderOnMouseLeftButtonDown">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Seth's AI Usage Monitor"
+                                       Foreground="#F9FAFB"
+                                       FontWeight="SemiBold">
+                                <TextBlock.Style>
+                                    <Style TargetType="{x:Type TextBlock}">
+                                        <Setter Property="FontSize" Value="28" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                                                <Setter Property="FontSize" Value="22" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Border Margin="12,3,0,0"
+                                    Padding="8,3"
+                                    VerticalAlignment="Center"
+                                    Background="#232733"
+                                    BorderBrush="#343A46"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Style="{StaticResource FullOnlyElementStyle}">
+                                <TextBlock Text="{Binding AppVersionText}"
+                                           Foreground="#A8AFBA"
+                                           FontSize="12"
+                                           FontWeight="SemiBold" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding GeneratedAtText}"
+                                   Margin="0,4,0,0"
+                                   Foreground="#A8AFBA"
+                                   FontSize="13" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Top">
+                        <Button Content="⚙"
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTip="Settings"
+                                Click="SettingsButtonOnClick" />
+                        <Button Content="↻"
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTip="Refresh now"
+                                Click="ReloadButtonOnClick" />
+                        <Button Content="!"
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTip="Logs"
+                                Click="LogsButtonOnClick" />
+                        <Button Content="×"
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTip="Hide"
+                                Click="HideButtonOnClick" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1"
+                        Padding="12,10"
+                        Background="#2B1B20"
+                        BorderBrush="#7F1D1D"
                         BorderThickness="1"
                         CornerRadius="8">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="30"
-                                          Direction="270"
-                                          ShadowDepth="8"
-                                          Opacity="0.42"
-                                          Color="#000000" />
-                    </Border.Effect>
-
-                    <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Grid Grid.Row="0"
-                  MouseLeftButtonDown="HeaderOnMouseLeftButtonDown">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Seth's AI Usage Monitor"
-                                   Foreground="#F9FAFB"
-                                   FontSize="28"
-                                   FontWeight="SemiBold" />
-                        <Border Margin="12,3,0,0"
-                                Padding="8,3"
-                                VerticalAlignment="Center"
-                                Background="#232733"
-                                BorderBrush="#343A46"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                            <TextBlock Text="{Binding AppVersionText}"
-                                       Foreground="#A8AFBA"
-                                       FontSize="12"
-                                       FontWeight="SemiBold" />
-                        </Border>
-                    </StackPanel>
-                    <TextBlock Text="{Binding GeneratedAtText}"
-                               Margin="0,4,0,0"
-                               Foreground="#A8AFBA"
-                               FontSize="13" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Top">
-                    <Button Content="⚙"
-                            Style="{StaticResource IconButtonStyle}"
-                            ToolTip="Settings"
-                            Click="SettingsButtonOnClick" />
-                    <Button Content="↻"
-                            Style="{StaticResource IconButtonStyle}"
-                            ToolTip="Refresh now"
-                            Click="ReloadButtonOnClick" />
-                    <Button Content="!"
-                            Style="{StaticResource IconButtonStyle}"
-                            ToolTip="Logs"
-                            Click="LogsButtonOnClick" />
-                    <Button Content="×"
-                            Style="{StaticResource IconButtonStyle}"
-                            ToolTip="Hide"
-                            Click="HideButtonOnClick" />
-                </StackPanel>
-            </Grid>
-
-            <Border Grid.Row="1"
-                    Margin="0,18,0,0"
-                    Padding="12,10"
-                    Background="#2B1B20"
-                    BorderBrush="#7F1D1D"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Visibility="{Binding HasError, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <TextBlock Text="{Binding ErrorMessage}"
-                           Foreground="#FCA5A5"
-                           FontSize="13"
-                           TextWrapping="Wrap" />
-            </Border>
-
-            <ItemsControl Grid.Row="2"
-                          Margin="0,18,0,0"
-                          ItemsSource="{Binding Providers}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Columns="2" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Margin="0,0,14,14"
-                                Padding="18"
-                                Background="#FF1D2028"
-                                BorderBrush="#303641"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <Grid Grid.Row="0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Border Width="4"
-                                            Height="28"
-                                            Margin="0,0,12,0"
-                                            Background="{Binding AccentBrush}"
-                                            CornerRadius="2" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding Name}"
-                                               Margin="0,0,12,0"
-                                               Foreground="#F3F4F6"
-                                               FontSize="18"
-                                               FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis"
-                                               VerticalAlignment="Center" />
-                                    <StackPanel Grid.Column="2"
-                                                HorizontalAlignment="Right">
-                                        <Border Padding="9,4"
-                                                Background="{Binding OverallStatusBackground}"
-                                                CornerRadius="8">
-                                            <TextBlock Text="{Binding OverallStatusLabel}"
-                                                       Foreground="{Binding OverallStatusBrush}"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold" />
-                                        </Border>
-                                        <TextBlock Margin="0,6,0,0"
-                                                   Text="{Binding CheckedText}"
-                                                   Foreground="#8B93A1"
-                                                   FontSize="11"
-                                                   HorizontalAlignment="Right" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <StackPanel Grid.Row="1"
-                                            Margin="0,18,0,0">
-                                    <TextBlock Text="{Binding StatusMessage}"
-                                               Foreground="#A8AFBA"
-                                               FontSize="13"
-                                               TextWrapping="Wrap"
-                                               Visibility="{Binding IsUnavailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
-
-                                    <ItemsControl ItemsSource="{Binding Windows}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel Margin="0,0,0,18">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Text="{Binding Title}"
-                                                                   Foreground="#D6DAE1"
-                                                                   FontSize="13"
-                                                                   FontWeight="SemiBold" />
-                                                        <TextBlock Grid.Column="1"
-                                                                   Text="{Binding RemainingText}"
-                                                                   Foreground="#F9FAFB"
-                                                                   FontSize="13"
-                                                                   FontWeight="SemiBold" />
-                                                    </Grid>
-
-                                                    <ProgressBar Margin="0,8,0,0"
-                                                                 Style="{StaticResource UsageProgressBarStyle}"
-                                                                 Value="{Binding RemainingPercent, Mode=OneWay}"
-                                                                 Foreground="{Binding ProgressBrush}" />
-
-                                                    <Grid Margin="0,8,0,0">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Text="{Binding LimitText}"
-                                                                   Foreground="#A8AFBA"
-                                                                   FontSize="12" />
-                                                        <TextBlock Grid.Column="1"
-                                                                   Text="{Binding ResetText}"
-                                                                   Foreground="#A8AFBA"
-                                                                   FontSize="12" />
-                                                    </Grid>
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <Grid Grid.Row="3"
-                  Margin="0,4,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding SourcePathText}"
-                           Foreground="#6B7280"
-                           FontSize="11"
-                           TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="1"
-                           Margin="16,0,0,0"
-                           Text="{Binding LogSummaryText}"
-                           Foreground="#6B7280"
-                           FontSize="11" />
-                <TextBlock Grid.Column="2"
-                           Margin="16,0,0,0"
-                           Text="{Binding AutoRefreshText}"
-                           Foreground="#6B7280"
-                           FontSize="11" />
-            </Grid>
-                    </Grid>
+                    <Border.Style>
+                        <Style TargetType="{x:Type Border}">
+                            <Setter Property="Margin" Value="0,18,0,0" />
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasError}" Value="True" />
+                                        <Condition Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Full" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasError}" Value="True" />
+                                        <Condition Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Margin" Value="0,12,0,0" />
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="#FCA5A5"
+                               FontSize="13"
+                               TextWrapping="Wrap" />
                 </Border>
+
+                <ScrollViewer x:Name="ProvidersScrollViewer"
+                              Grid.Row="2"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer.Style>
+                        <Style TargetType="{x:Type ScrollViewer}">
+                            <Setter Property="Margin" Value="0,18,0,0" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                                    <Setter Property="Margin" Value="0,12,0,0" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                                    <Setter Property="Margin" Value="0" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
+                    <ItemsControl x:Name="ProvidersList"
+                                  Width="{Binding ProvidersListWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  ItemsSource="{Binding Providers}"
+                                  SizeChanged="ProvidersListOnSizeChanged">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel IsItemsHost="True"
+                                           ItemWidth="{Binding CardSlotWidth, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource ProviderCardStyle}">
+                                    <Grid>
+                                        <Grid Style="{StaticResource FullOnlyElementStyle}">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <Grid Grid.Row="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Width="4"
+                                                        Height="28"
+                                                        Margin="0,0,12,0"
+                                                        Background="{Binding AccentBrush}"
+                                                        CornerRadius="2" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           Margin="0,0,12,0"
+                                                           Foreground="#F3F4F6"
+                                                           FontSize="18"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                                <StackPanel Grid.Column="2"
+                                                            HorizontalAlignment="Right">
+                                                    <Border Padding="9,4"
+                                                            Background="{Binding OverallStatusBackground}"
+                                                            CornerRadius="8">
+                                                        <TextBlock Text="{Binding OverallStatusLabel}"
+                                                                   Foreground="{Binding OverallStatusBrush}"
+                                                                   FontSize="12"
+                                                                   FontWeight="SemiBold" />
+                                                    </Border>
+                                                    <TextBlock Margin="0,6,0,0"
+                                                               Text="{Binding CheckedText}"
+                                                               Foreground="#8B93A1"
+                                                               FontSize="11"
+                                                               HorizontalAlignment="Right" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <StackPanel Grid.Row="1"
+                                                        Margin="0,18,0,0">
+                                                <TextBlock Text="{Binding StatusMessage}"
+                                                           Foreground="#A8AFBA"
+                                                           FontSize="13"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding IsUnavailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                                <ItemsControl ItemsSource="{Binding Windows}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Margin="0,0,0,18">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Text="{Binding Title}"
+                                                                               Foreground="#D6DAE1"
+                                                                               FontSize="13"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBlock Grid.Column="1"
+                                                                               Text="{Binding RemainingText}"
+                                                                               Foreground="#F9FAFB"
+                                                                               FontSize="13"
+                                                                               FontWeight="SemiBold" />
+                                                                </Grid>
+
+                                                                <ProgressBar Margin="0,8,0,0"
+                                                                             Style="{StaticResource UsageProgressBarStyle}"
+                                                                             Value="{Binding RemainingPercent, Mode=OneWay}"
+                                                                             Foreground="{Binding ProgressBrush}" />
+
+                                                                <Grid Margin="0,8,0,0">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Text="{Binding LimitText}"
+                                                                               Foreground="#A8AFBA"
+                                                                               FontSize="12" />
+                                                                    <StackPanel Grid.Column="1"
+                                                                                Orientation="Horizontal"
+                                                                                HorizontalAlignment="Right">
+                                                                        <TextBlock Text="{Binding ResetRelativeText}"
+                                                                                   Foreground="{Binding ResetRelativeBrush}"
+                                                                                   FontSize="12"
+                                                                                   FontWeight="SemiBold" />
+                                                                        <TextBlock Text="{Binding ResetText}"
+                                                                                   Margin="10,0,0,0"
+                                                                                   Foreground="#A8AFBA"
+                                                                                   FontSize="12" />
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <StackPanel Style="{StaticResource CompactOnlyElementStyle}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding SummaryText}"
+                                                           Foreground="#F3F4F6"
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                                <Border Grid.Column="1"
+                                                        Margin="10,0,0,0"
+                                                        Padding="7,3"
+                                                        Background="{Binding OverallStatusBackground}"
+                                                        CornerRadius="7">
+                                                    <TextBlock Text="{Binding OverallStatusLabel}"
+                                                               Foreground="{Binding OverallStatusBrush}"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold" />
+                                                </Border>
+                                            </Grid>
+
+                                            <ItemsControl Margin="0,8,0,0"
+                                                          ItemsSource="{Binding Windows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,5,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding Title}"
+                                                                       Foreground="#A8AFBA"
+                                                                       FontSize="11"
+                                                                       MaxWidth="130"
+                                                                       MinWidth="58"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <ProgressBar Grid.Column="1"
+                                                                         Margin="8,0,8,0"
+                                                                         Height="6"
+                                                                         VerticalAlignment="Center"
+                                                                         Style="{StaticResource UsageProgressBarStyle}"
+                                                                         Value="{Binding RemainingPercent, Mode=OneWay}"
+                                                                         Foreground="{Binding ProgressBrush}" />
+                                                            <TextBlock Grid.Column="2"
+                                                                       Margin="8,0,0,0"
+                                                                       Text="{Binding ResetRelativeText}"
+                                                                       Foreground="{Binding ResetRelativeBrush}"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold" />
+                                                            <TextBlock Grid.Column="3"
+                                                                       Margin="8,0,0,0"
+                                                                       Text="{Binding RemainingText}"
+                                                                       Foreground="#D6DAE1"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <StackPanel Style="{StaticResource MiniOnlyElementStyle}">
+                                            <TextBlock Text="{Binding SummaryText}"
+                                                       Foreground="#F3F4F6"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <ProgressBar Margin="0,4,0,0"
+                                                         Height="4"
+                                                         Style="{StaticResource UsageProgressBarStyle}"
+                                                         Value="{Binding PrimaryRemainingPercent, Mode=OneWay}"
+                                                         Foreground="{Binding SummaryProgressBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <Grid Grid.Row="3"
+                      Margin="0,10,0,0"
+                      Style="{StaticResource FullOnlyElementStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding SourcePathText}"
+                               Foreground="#6B7280"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1"
+                               Margin="16,0,0,0"
+                               Text="{Binding LogSummaryText}"
+                               Foreground="#6B7280"
+                               FontSize="11" />
+                    <TextBlock Grid.Column="2"
+                               Margin="16,0,0,0"
+                               Text="{Binding AutoRefreshText}"
+                               Foreground="#6B7280"
+                               FontSize="11" />
+                </Grid>
             </Grid>
-        </Viewbox>
+        </Border>
 
         <Thumb Width="30"
                Height="30"
