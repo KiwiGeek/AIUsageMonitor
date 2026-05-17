@@ -16,9 +16,8 @@ public sealed class UsageWindowDisplay
         UsedPercent = usageWindow.UsedPercent;
         RemainingPercent = usageWindow.RemainingPercent;
         Detail = usageWindow.Detail;
-        UsedPercentText = $"{usageWindow.UsedPercent:0}% used";
         RemainingText = $"{usageWindow.RemainingPercent:0}% left";
-        LimitText = string.IsNullOrWhiteSpace(Detail) ? UsedPercentText : Detail;
+        LimitText = string.IsNullOrWhiteSpace(Detail) ? RemainingText : Detail;
         ResetText = usageWindow.ResetAt is { } resetAt
             ? FormatResetText(resetAt)
             : "Reset time unavailable";
@@ -45,8 +44,6 @@ public sealed class UsageWindowDisplay
     public double UsedPercent { get; }
 
     public double RemainingPercent { get; }
-
-    public string UsedPercentText { get; }
 
     public string RemainingText { get; }
 
