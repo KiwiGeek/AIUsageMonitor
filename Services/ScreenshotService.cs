@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using AIUsageMonitor.ViewModels;
 using AIUsageMonitor.Views;
 
@@ -9,7 +10,7 @@ namespace AIUsageMonitor.Services;
 
 internal static class ScreenshotService
 {
-    public static void SaveOverlayScreenshot(string outputPath)
+    public static void SaveOverlayScreenshot(string outputPath, double? requestedWidth = null, double? requestedHeight = null)
     {
         var fullPath = Path.GetFullPath(outputPath);
         var outputDirectory = Path.GetDirectoryName(fullPath);
@@ -31,20 +32,54 @@ internal static class ScreenshotService
             Topmost = false,
             WindowStartupLocation = WindowStartupLocation.Manual
         };
+        if (requestedWidth is > 0)
+        {
+            window.Width = requestedWidth.Value;
+        }
 
-        window.Show();
-        window.UpdateLayout();
+        if (requestedHeight is > 0)
+        {
+            window.Height = requestedHeight.Value;
+        }
 
-        var width = Math.Max(1, (int)Math.Ceiling(window.ActualWidth));
-        var height = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
-        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(window);
+        try
+        {
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            window.UpdateLayout();
 
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            var width = Math.Max(1, (int)Math.Ceiling(window.ActualWidth));
+            var height = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
+            var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(window);
 
-        using var stream = File.Create(fullPath);
-        encoder.Save(stream);
-        window.Close();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+            var tempPath = Path.Combine(
+                outputDirectory ?? Environment.CurrentDirectory,
+                $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+
+            try
+            {
+                using (var stream = File.Create(tempPath))
+                {
+                    encoder.Save(stream);
+                }
+
+                File.Move(tempPath, fullPath, true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 }

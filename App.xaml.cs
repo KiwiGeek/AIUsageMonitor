@@ -1,3 +1,4 @@
+using System.Globalization;
 using AIUsageMonitor.Services;
 
 namespace AIUsageMonitor;
@@ -12,10 +13,19 @@ public partial class App : System.Windows.Application
 
         ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
 
-        if (TryGetScreenshotPath(e.Args, out var screenshotPath))
+        if (TryGetScreenshotOptions(e.Args, out var screenshotPath, out var screenshotWidth, out var screenshotHeight))
         {
-            ScreenshotService.SaveOverlayScreenshot(screenshotPath);
-            Shutdown();
+            try
+            {
+                ScreenshotService.SaveOverlayScreenshot(screenshotPath, screenshotWidth, screenshotHeight);
+                Shutdown();
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine($"Could not save screenshot: {exception.Message}");
+                Shutdown(1);
+            }
+
             return;
         }
 
@@ -31,19 +41,60 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
-    private static bool TryGetScreenshotPath(string[] args, out string path)
+    private static bool TryGetScreenshotOptions(string[] args, out string path, out double? width, out double? height)
     {
         path = string.Empty;
+        width = null;
+        height = null;
 
         for (var index = 0; index < args.Length - 1; index++)
         {
             if (string.Equals(args[index], "--screenshot", StringComparison.OrdinalIgnoreCase))
             {
                 path = args[index + 1];
-                return !string.IsNullOrWhiteSpace(path);
+                index++;
+                continue;
+            }
+
+            if (string.Equals(args[index], "--screenshot-size", StringComparison.OrdinalIgnoreCase) &&
+                TryParseScreenshotSize(args[index + 1], out var parsedWidth, out var parsedHeight))
+            {
+                width = parsedWidth;
+                height = parsedHeight;
+                index++;
+                continue;
+            }
+
+            if (string.Equals(args[index], "--screenshot-width", StringComparison.OrdinalIgnoreCase) &&
+                double.TryParse(args[index + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedWidthOnly))
+            {
+                width = parsedWidthOnly;
+                index++;
+                continue;
+            }
+
+            if (string.Equals(args[index], "--screenshot-height", StringComparison.OrdinalIgnoreCase) &&
+                double.TryParse(args[index + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedHeightOnly))
+            {
+                height = parsedHeightOnly;
+                index++;
             }
         }
 
-        return false;
+        return !string.IsNullOrWhiteSpace(path);
+    }
+
+    private static bool TryParseScreenshotSize(string value, out double width, out double height)
+    {
+        width = 0;
+        height = 0;
+        var separatorIndex = value.IndexOf('x', StringComparison.OrdinalIgnoreCase);
+        if (separatorIndex <= 0 || separatorIndex >= value.Length - 1)
+        {
+            return false;
+        }
+
+        return double.TryParse(value[..separatorIndex], NumberStyles.Float, CultureInfo.InvariantCulture, out width) &&
+               double.TryParse(value[(separatorIndex + 1)..], NumberStyles.Float, CultureInfo.InvariantCulture, out height);
     }
 }

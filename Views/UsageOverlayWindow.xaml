@@ -14,7 +14,7 @@
         ShowInTaskbar="False"
         Topmost="True"
         PreviewKeyDown="WindowOnPreviewKeyDown"
-        MouseLeftButtonDown="WindowOnMouseLeftButtonDown">
+        PreviewMouseLeftButtonDown="WindowOnPreviewMouseLeftButtonDown">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
@@ -36,6 +36,19 @@
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
                     <Setter Property="Visibility" Value="Visible" />
                 </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CompactButtonsElementStyle" TargetType="{x:Type FrameworkElement}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact" />
+                        <Condition Binding="{Binding ShowCompactButtons, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -66,12 +79,12 @@
             <Setter Property="CornerRadius" Value="8" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
-                    <Setter Property="Margin" Value="12" />
-                    <Setter Property="Padding" Value="14" />
+                    <Setter Property="Margin" Value="4" />
+                    <Setter Property="Padding" Value="10" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
-                    <Setter Property="Margin" Value="8" />
-                    <Setter Property="Padding" Value="8" />
+                    <Setter Property="Margin" Value="4" />
+                    <Setter Property="Padding" Value="6" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -87,8 +100,8 @@
             <Style.Triggers>
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
                     <Setter Property="Margin" Value="4" />
-                    <Setter Property="Padding" Value="10" />
-                    <Setter Property="MinHeight" Value="102" />
+                    <Setter Property="Padding" Value="8" />
+                    <Setter Property="MinHeight" Value="92" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
                     <Setter Property="Margin" Value="3,2" />
@@ -130,6 +143,20 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                    <Setter Property="Width" Value="30" />
+                    <Setter Property="Height" Value="30" />
+                    <Setter Property="Margin" Value="5,0,0,0" />
+                    <Setter Property="FontSize" Value="14" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                    <Setter Property="Width" Value="28" />
+                    <Setter Property="Height" Value="28" />
+                    <Setter Property="Margin" Value="4,0,0,0" />
+                    <Setter Property="FontSize" Value="13" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="UsageProgressBarStyle" TargetType="ProgressBar">
@@ -183,6 +210,7 @@
             </Border.Effect>
 
             <Grid>
+                <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -191,7 +219,7 @@
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0"
-                      Style="{StaticResource NotMiniElementStyle}"
+                      Style="{StaticResource FullOnlyElementStyle}"
                       MouseLeftButtonDown="HeaderOnMouseLeftButtonDown">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -293,23 +321,26 @@
 
                 <ScrollViewer x:Name="ProvidersScrollViewer"
                               Grid.Row="2"
-                              VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <ScrollViewer.Style>
                         <Style TargetType="{x:Type ScrollViewer}">
                             <Setter Property="Margin" Value="0,18,0,0" />
+                            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
-                                    <Setter Property="Margin" Value="0,12,0,0" />
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
                                     <Setter Property="Margin" Value="0" />
+                                    <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </ScrollViewer.Style>
                     <ItemsControl x:Name="ProvidersList"
                                   Width="{Binding ProvidersListWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  HorizontalAlignment="Left"
                                   ItemsSource="{Binding Providers}"
                                   SizeChanged="ProvidersListOnSizeChanged">
                         <ItemsControl.ItemsPanel>
@@ -535,6 +566,29 @@
                                Foreground="#6B7280"
                                FontSize="11" />
                 </Grid>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Style="{StaticResource CompactButtonsElementStyle}">
+                    <Button Content="⚙"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Settings"
+                            Click="SettingsButtonOnClick" />
+                    <Button Content="↻"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Refresh now"
+                            Click="ReloadButtonOnClick" />
+                    <Button Content="!"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Logs"
+                            Click="LogsButtonOnClick" />
+                    <Button Content="×"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Hide"
+                            Click="HideButtonOnClick" />
+                </StackPanel>
             </Grid>
         </Border>
 

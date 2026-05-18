@@ -22,17 +22,26 @@ public partial class UsageOverlayWindow : Window
     private const double MiniMinimumCardWidth = 136;
     private const double FullMinimumVerticalInset = 210;
     private const double FullMinimumRowHeight = 265;
-    private const double CompactMinimumVerticalInset = 117;
-    private const double CompactMinimumRowHeight = 110;
+    private const double CompactMinimumVerticalInset = 36;
+    private const double CompactMinimumRowHeight = 100;
     private const double MiniMinimumVerticalInset = 38;
     private const double MiniMinimumRowHeight = 39;
-    private const double StrongLandscapeRatio = 4.5;
+    private const double StrongLandscapeRatio = 3.75;
+    private const double CompactHorizontalChromeInset = 28;
+    private const double CompactButtonsHorizontalInset = 180;
+    private const double HeightTrimTolerance = 1;
 
     public static readonly DependencyProperty DisplayModeProperty = DependencyProperty.Register(
         nameof(DisplayMode),
         typeof(string),
         typeof(UsageOverlayWindow),
         new PropertyMetadata(FullDisplayMode));
+
+    public static readonly DependencyProperty ShowCompactButtonsProperty = DependencyProperty.Register(
+        nameof(ShowCompactButtons),
+        typeof(bool),
+        typeof(UsageOverlayWindow),
+        new PropertyMetadata(false));
 
     public static readonly DependencyProperty CardSlotWidthProperty = DependencyProperty.Register(
         nameof(CardSlotWidth),
@@ -51,6 +60,7 @@ public partial class UsageOverlayWindow : Window
     private System.Windows.Point _resizeStartScreenPoint;
     private INotifyCollectionChanged? _providersCollection;
     private bool _responsiveLayoutQueued;
+    private bool _isAutoTrimmingHeight;
 
     public event EventHandler? ReloadRequested;
 
@@ -72,6 +82,12 @@ public partial class UsageOverlayWindow : Window
     {
         get => (string)GetValue(DisplayModeProperty);
         private set => SetValue(DisplayModeProperty, value);
+    }
+
+    public bool ShowCompactButtons
+    {
+        get => (bool)GetValue(ShowCompactButtonsProperty);
+        private set => SetValue(ShowCompactButtonsProperty, value);
     }
 
     public double CardSlotWidth
@@ -142,20 +158,15 @@ public partial class UsageOverlayWindow : Window
         BeginDragMove(e);
     }
 
-    private void WindowOnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void WindowOnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ButtonState != MouseButtonState.Pressed || IsInteractiveElement(e.OriginalSource as DependencyObject))
+        var source = e.OriginalSource as DependencyObject;
+        if (e.ButtonState != MouseButtonState.Pressed || IsInteractiveElement(source))
         {
             return;
         }
 
-        var point = e.GetPosition(WindowRoot);
-        var draggableHeight = Math.Max(72, ActualHeight * 0.18);
-
-        if (point.Y <= draggableHeight)
-        {
-            BeginDragMove(e);
-        }
+        BeginDragMove(e);
     }
 
     private void ResizeThumbOnDragStarted(object sender, DragStartedEventArgs e)
@@ -175,7 +186,7 @@ public partial class UsageOverlayWindow : Window
 
         MinHeight = minimumHeight;
         Width = requestedWidth;
-        Height = Math.Max(minimumHeight, requestedHeight);
+        Height = minimumHeight;
     }
 
     private void ProvidersListOnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -245,30 +256,49 @@ public partial class UsageOverlayWindow : Window
             DisplayMode = layout.DisplayMode;
         }
 
+        if (ShowCompactButtons != layout.ShowCompactButtons)
+        {
+            ShowCompactButtons = layout.ShowCompactButtons;
+        }
+
         MinHeight = GetMinimumWindowHeight(layout.DisplayMode, layout.Rows);
         CardSlotWidth = layout.CardSlotWidth;
         ProvidersListWidth = layout.ProvidersListWidth;
+        TrimHeightToContent(MinHeight);
+    }
+
+    private void TrimHeightToContent(double targetHeight)
+    {
+        if (_isAutoTrimmingHeight || ActualHeight <= targetHeight + HeightTrimTolerance)
+        {
+            return;
+        }
+
+        _isAutoTrimmingHeight = true;
+        try
+        {
+            Height = targetHeight;
+        }
+        finally
+        {
+            _isAutoTrimmingHeight = false;
+        }
     }
 
     private static ResponsiveLayout CalculateResponsiveLayout(double width, double height, int providerCount)
     {
-        var displayMode = GetDisplayMode(width, height);
-        var estimatedAvailableWidth = Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode));
-        var availableWidth = estimatedAvailableWidth;
-
         providerCount = Math.Max(1, providerCount);
-        var minimumCardWidth = displayMode switch
-        {
-            MiniDisplayMode => MiniMinimumCardWidth,
-            CompactDisplayMode => CompactMinimumCardWidth,
-            _ => FullMinimumCardWidth
-        };
-        var maxColumns = Math.Clamp((int)Math.Floor(availableWidth / minimumCardWidth), 1, providerCount);
-        var columns = ChooseColumnsForHeight(displayMode, width, height, providerCount, maxColumns);
-        var rows = (int)Math.Ceiling(providerCount / (double)columns);
-        var cardSlotWidth = Math.Max(1, Math.Floor(availableWidth / columns));
+        var displayMode = GetDisplayMode(width, height, providerCount);
+        var showCompactButtons = false;
 
-        return new ResponsiveLayout(displayMode, rows, cardSlotWidth, cardSlotWidth * columns);
+        if (displayMode == CompactDisplayMode)
+        {
+            var withButtons = CalculateCardGrid(displayMode, width, height, providerCount, true);
+            showCompactButtons = withButtons.Columns > 1;
+        }
+
+        var grid = CalculateCardGrid(displayMode, width, height, providerCount, showCompactButtons);
+        return new ResponsiveLayout(displayMode, grid.Rows, grid.CardSlotWidth, grid.ProvidersListWidth, showCompactButtons);
     }
 
     private static double GetMinimumWindowHeight(string displayMode, int rows)
@@ -302,30 +332,73 @@ public partial class UsageOverlayWindow : Window
         return maxColumns;
     }
 
-    private static string GetDisplayMode(double width, double height)
+    private static string GetDisplayMode(double width, double height, int providerCount)
     {
-        if (width < MiniWidthBreakpoint || height < MiniHeightBreakpoint)
+        if (width < MiniWidthBreakpoint ||
+            (height < MiniHeightBreakpoint && !CanFitMode(CompactDisplayMode, width, height, providerCount, false)))
         {
             return MiniDisplayMode;
         }
 
-        return width < CompactWidthBreakpoint || height < CompactHeightBreakpoint
+        if (width >= CompactWidthBreakpoint &&
+            height >= CompactHeightBreakpoint &&
+            CanFitMode(FullDisplayMode, width, height, providerCount, false))
+        {
+            return FullDisplayMode;
+        }
+
+        return CanFitMode(CompactDisplayMode, width, height, providerCount, false)
             ? CompactDisplayMode
-            : FullDisplayMode;
+            : MiniDisplayMode;
     }
 
-    private static double EstimatedHorizontalChromeInset(string displayMode)
+    private static bool CanFitMode(string displayMode, double width, double height, int providerCount, bool showCompactButtons)
+    {
+        var grid = CalculateCardGrid(displayMode, width, height, providerCount, showCompactButtons);
+        return GetMinimumWindowHeight(displayMode, grid.Rows) <= height;
+    }
+
+    private static CardGrid CalculateCardGrid(
+        string displayMode,
+        double width,
+        double height,
+        int providerCount,
+        bool showCompactButtons)
+    {
+        var availableWidth = Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, showCompactButtons));
+        var minimumCardWidth = displayMode switch
+        {
+            MiniDisplayMode => MiniMinimumCardWidth,
+            CompactDisplayMode => CompactMinimumCardWidth,
+            _ => FullMinimumCardWidth
+        };
+        var maxColumns = Math.Clamp((int)Math.Floor(availableWidth / minimumCardWidth), 1, providerCount);
+        var columns = ChooseColumnsForHeight(displayMode, width, height, providerCount, maxColumns);
+        var rows = (int)Math.Ceiling(providerCount / (double)columns);
+        var cardSlotWidth = Math.Max(1, Math.Floor(availableWidth / columns));
+
+        return new CardGrid(columns, rows, cardSlotWidth, cardSlotWidth * columns);
+    }
+
+    private static double EstimatedHorizontalChromeInset(string displayMode, bool showCompactButtons)
     {
         return displayMode switch
         {
             MiniDisplayMode => 34,
-            CompactDisplayMode => 52,
+            CompactDisplayMode => showCompactButtons ? CompactButtonsHorizontalInset : CompactHorizontalChromeInset,
             _ => 84
         };
     }
 
     private readonly record struct ResponsiveLayout(
         string DisplayMode,
+        int Rows,
+        double CardSlotWidth,
+        double ProvidersListWidth,
+        bool ShowCompactButtons);
+
+    private readonly record struct CardGrid(
+        int Columns,
         int Rows,
         double CardSlotWidth,
         double ProvidersListWidth);
