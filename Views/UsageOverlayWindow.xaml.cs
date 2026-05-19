@@ -61,6 +61,7 @@ public partial class UsageOverlayWindow : Window
     private double _resizeStartHeight;
     private double _resizeStartWidth;
     private System.Windows.Point _resizeStartScreenPoint;
+    private Thumb? _activeResizeThumb;
     private INotifyCollectionChanged? _providersCollection;
     private bool _responsiveLayoutQueued;
     private bool _isAutoTrimmingHeight;
@@ -216,6 +217,12 @@ public partial class UsageOverlayWindow : Window
 
     private void ResizeThumbOnDragStarted(object sender, DragStartedEventArgs e)
     {
+        if (sender is Thumb thumb)
+        {
+            _activeResizeThumb = thumb;
+            _activeResizeThumb.Visibility = Visibility.Visible;
+        }
+
         _resizeStartWidth = ActualWidth;
         _resizeStartHeight = ActualHeight;
         _resizeStartScreenPoint = GetMouseScreenPosition();
@@ -232,6 +239,17 @@ public partial class UsageOverlayWindow : Window
         MinHeight = minimumHeight;
         Width = requestedWidth;
         Height = minimumHeight;
+    }
+
+    private void ResizeThumbOnDragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (_activeResizeThumb is null)
+        {
+            return;
+        }
+
+        _activeResizeThumb.ClearValue(VisibilityProperty);
+        _activeResizeThumb = null;
     }
 
     private void ProvidersListOnSizeChanged(object sender, SizeChangedEventArgs e)

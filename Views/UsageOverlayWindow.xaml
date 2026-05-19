@@ -666,7 +666,8 @@
                        VerticalAlignment="Bottom"
                        Style="{StaticResource InlineMiniResizeThumbStyle}"
                        DragStarted="ResizeThumbOnDragStarted"
-                       DragDelta="ResizeThumbOnDragDelta" />
+                       DragDelta="ResizeThumbOnDragDelta"
+                       DragCompleted="ResizeThumbOnDragCompleted" />
             </Grid>
         </Border>
 
@@ -674,6 +675,7 @@
                HorizontalAlignment="Right"
                VerticalAlignment="Bottom"
                DragStarted="ResizeThumbOnDragStarted"
-               DragDelta="ResizeThumbOnDragDelta" />
+               DragDelta="ResizeThumbOnDragDelta"
+               DragCompleted="ResizeThumbOnDragCompleted" />
     </Grid>
 </Window>
