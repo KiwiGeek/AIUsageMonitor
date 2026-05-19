@@ -22,17 +22,35 @@ public sealed class CursorUsageCollector : IUsageCollector
         _settingsService = settingsService;
     }
 
-    public string ProviderName => "Cursor";
+    public string ProviderName => KnownProviders.Cursor;
 
     public async Task<ProviderUsage> CollectAsync(CancellationToken cancellationToken)
     {
         var settings = _settingsService.Load();
+
+        return string.Equals(settings.CursorUsageMode, AppSettings.CursorUsageModeTeamsApiKey, StringComparison.Ordinal)
+            ? await CollectTeamsApiUsageAsync(settings, cancellationToken)
+            : await CollectPersonalDashboardUsageAsync(settings, cancellationToken);
+    }
+
+    private static async Task<ProviderUsage> CollectPersonalDashboardUsageAsync(
+        AppSettings settings,
+        CancellationToken cancellationToken)
+    {
         var dashboardUsage = await TryCollectDashboardUsageAsync(settings, cancellationToken);
         if (dashboardUsage is not null)
         {
             return dashboardUsage;
         }
 
+        return ProviderUsageFactory.Unavailable(
+            "Cursor",
+            "Cursor personal dashboard login is not saved. Open Settings, then use Cursor Setup.",
+            "Cursor dashboard not configured");
+    }
+
+    private async Task<ProviderUsage> CollectTeamsApiUsageAsync(AppSettings settings, CancellationToken cancellationToken)
+    {
         var apiKey = string.IsNullOrWhiteSpace(settings.CursorApiKey)
             ? Environment.GetEnvironmentVariable("CURSOR_API_KEY")
             : settings.CursorApiKey;
@@ -41,15 +59,15 @@ public sealed class CursorUsageCollector : IUsageCollector
         {
             return ProviderUsageFactory.Unavailable(
                 ProviderName,
-                "Cursor personal dashboard login is not saved. Open Settings, then use Set up Cursor login.",
-                "Cursor dashboard not configured");
+                "Cursor Teams Admin API key is not configured. Open Settings, then use Cursor Setup.",
+                "Cursor Admin API not configured");
         }
 
         if (apiKey.StartsWith("crsr_", StringComparison.OrdinalIgnoreCase))
         {
             return ProviderUsageFactory.Unavailable(
                 ProviderName,
-                "The saved crsr_ key is not accepted by Cursor's Teams Admin API. For personal plans, open Settings and use Set up Cursor login.",
+                "The saved crsr_ key is not accepted by Cursor's Teams Admin API. Choose Personal Subscription in Cursor Setup instead.",
                 "Cursor personal plan");
         }
 
@@ -129,7 +147,7 @@ public sealed class CursorUsageCollector : IUsageCollector
         {
             return ProviderUsageFactory.Unavailable(
                 "Cursor",
-                "Saved Cursor dashboard login was rejected. Open Settings, then use Set up Cursor login again.",
+                "Saved Cursor dashboard login was rejected. Open Settings, then use Cursor Setup again.",
                 "Cursor dashboard");
         }
 

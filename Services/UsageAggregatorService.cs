@@ -10,11 +10,13 @@ public sealed class UsageAggregatorService
 {
     private readonly IReadOnlyList<IUsageCollector> _collectors;
     private readonly AppLogService _logService;
+    private readonly AppSettingsService _settingsService;
     private readonly Dictionary<string, CollectorFailureState> _failureStates = new(StringComparer.OrdinalIgnoreCase);
 
     public UsageAggregatorService(AppLogService logService, AppSettingsService settingsService)
     {
         _logService = logService;
+        _settingsService = settingsService;
         _collectors =
         [
             new ClaudeStatusFileUsageCollector(),
@@ -24,7 +26,9 @@ public sealed class UsageAggregatorService
         ];
     }
 
-    public IReadOnlyList<string> ProviderNames => _collectors.Select(collector => collector.ProviderName).ToList();
+    public IReadOnlyList<string> ProviderNames => GetEnabledCollectors(_settingsService.Load())
+        .Select(collector => collector.ProviderName)
+        .ToList();
 
     public void ResetBackoff()
     {
@@ -35,8 +39,11 @@ public sealed class UsageAggregatorService
     {
         var now = DateTimeOffset.Now;
         var providers = new List<ProviderUsage>();
+        var settings = _settingsService.Load();
+        var enabledCollectors = GetEnabledCollectors(settings).ToList();
+        RemoveDisabledFailureStates(enabledCollectors);
 
-        foreach (var collector in _collectors)
+        foreach (var collector in enabledCollectors)
         {
             if (_failureStates.TryGetValue(collector.ProviderName, out var state) && state.NextRetryAt > now)
             {
@@ -78,6 +85,26 @@ public sealed class UsageAggregatorService
             Source = "Live/local collectors",
             Providers = providers
         };
+    }
+
+    private IEnumerable<IUsageCollector> GetEnabledCollectors(AppSettings settings)
+    {
+        return _collectors.Where(collector => settings.IsProviderEnabled(collector.ProviderName));
+    }
+
+    private void RemoveDisabledFailureStates(IReadOnlyCollection<IUsageCollector> enabledCollectors)
+    {
+        var enabledProviderNames = enabledCollectors
+            .Select(collector => collector.ProviderName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var providerName in _failureStates.Keys.ToList())
+        {
+            if (!enabledProviderNames.Contains(providerName))
+            {
+                _failureStates.Remove(providerName);
+            }
+        }
     }
 
     private DateTimeOffset RecordFailure(string providerName, DateTimeOffset now, Exception ex)

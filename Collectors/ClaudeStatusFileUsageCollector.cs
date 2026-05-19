@@ -25,7 +25,7 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         Timeout = TimeSpan.FromSeconds(20)
     };
 
-    public string ProviderName => "Anthropic";
+    public string ProviderName => KnownProviders.Anthropic;
 
     public async Task<ProviderUsage> CollectAsync(CancellationToken cancellationToken)
     {

@@ -4,6 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using AIUsageMonitor.Models;
 using AIUsageMonitor.ViewModels;
 
 namespace AIUsageMonitor.Views;
@@ -14,19 +15,21 @@ public partial class UsageOverlayWindow : Window
     private const string CompactDisplayMode = "Compact";
     private const string MiniDisplayMode = "Mini";
     private const double CompactWidthBreakpoint = 760;
-    private const double CompactHeightBreakpoint = 520;
     private const double MiniWidthBreakpoint = 500;
     private const double MiniHeightBreakpoint = 290;
     private const double FullMinimumCardWidth = 330;
     private const double CompactMinimumCardWidth = 220;
     private const double MiniMinimumCardWidth = 136;
+    private const double FullEmptyMinimumHeight = 240;
+    private const double CompactEmptyMinimumHeight = 96;
+    private const double MiniEmptyMinimumHeight = 58;
     private const double FullMinimumVerticalInset = 210;
     private const double FullMinimumRowHeight = 265;
     private const double CompactMinimumVerticalInset = 36;
     private const double CompactMinimumRowHeight = 100;
-    private const double MiniMinimumVerticalInset = 38;
-    private const double MiniMinimumRowHeight = 39;
-    private const double StrongLandscapeRatio = 3.75;
+    private const double MiniMinimumVerticalInset = 22;
+    private const double MiniMinimumRowHeight = 36;
+    private const double MiniHorizontalChromeInset = 54;
     private const double CompactHorizontalChromeInset = 28;
     private const double CompactButtonsHorizontalInset = 180;
     private const double HeightTrimTolerance = 1;
@@ -76,6 +79,48 @@ public partial class UsageOverlayWindow : Window
         Loaded += WindowOnLoaded;
         SizeChanged += WindowOnSizeChanged;
         DataContextChanged += WindowOnDataContextChanged;
+    }
+
+    public void ApplyStartupPlacement(OverlayWindowPlacement? placement)
+    {
+        var virtualScreenBounds = GetVirtualScreenBounds();
+        if (virtualScreenBounds.IsEmpty)
+        {
+            return;
+        }
+
+        var width = CoerceDimension(placement?.Width, Width, MinWidth, virtualScreenBounds.Width);
+        var height = CoerceDimension(placement?.Height, Height, MinHeight, virtualScreenBounds.Height);
+
+        Width = width;
+        Height = height;
+
+        var savedLeft = placement?.Left;
+        var savedTop = placement?.Top;
+        if (!HasFiniteValue(savedLeft) || !HasFiniteValue(savedTop))
+        {
+            return;
+        }
+
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = Clamp(savedLeft.GetValueOrDefault(), virtualScreenBounds.Left, virtualScreenBounds.Right - width);
+        Top = Clamp(savedTop.GetValueOrDefault(), virtualScreenBounds.Top, virtualScreenBounds.Bottom - height);
+    }
+
+    public OverlayWindowPlacement GetCurrentPlacement()
+    {
+        return new OverlayWindowPlacement
+        {
+            Left = HasFiniteValue(Left) ? Left : null,
+            Top = HasFiniteValue(Top) ? Top : null,
+            Width = GetCurrentDimension(ActualWidth, Width),
+            Height = GetCurrentDimension(ActualHeight, Height)
+        };
+    }
+
+    public void EnsureValidPlacement()
+    {
+        ApplyStartupPlacement(GetCurrentPlacement());
     }
 
     public string DisplayMode
@@ -287,11 +332,11 @@ public partial class UsageOverlayWindow : Window
 
     private static ResponsiveLayout CalculateResponsiveLayout(double width, double height, int providerCount)
     {
-        providerCount = Math.Max(1, providerCount);
+        providerCount = Math.Max(0, providerCount);
         var displayMode = GetDisplayMode(width, height, providerCount);
-        var showCompactButtons = false;
+        var showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
 
-        if (displayMode == CompactDisplayMode)
+        if (displayMode == CompactDisplayMode && providerCount > 0)
         {
             var withButtons = CalculateCardGrid(displayMode, width, height, providerCount, true);
             showCompactButtons = withButtons.Columns > 1;
@@ -303,33 +348,41 @@ public partial class UsageOverlayWindow : Window
 
     private static double GetMinimumWindowHeight(string displayMode, int rows)
     {
-        var rowCount = Math.Max(1, rows);
+        if (rows <= 0)
+        {
+            return displayMode switch
+            {
+                MiniDisplayMode => MiniEmptyMinimumHeight,
+                CompactDisplayMode => CompactEmptyMinimumHeight,
+                _ => FullEmptyMinimumHeight
+            };
+        }
 
         return displayMode switch
         {
-            MiniDisplayMode => MiniMinimumVerticalInset + rowCount * MiniMinimumRowHeight,
-            CompactDisplayMode => CompactMinimumVerticalInset + rowCount * CompactMinimumRowHeight,
-            _ => FullMinimumVerticalInset + rowCount * FullMinimumRowHeight
+            MiniDisplayMode => MiniMinimumVerticalInset + rows * MiniMinimumRowHeight,
+            CompactDisplayMode => CompactMinimumVerticalInset + rows * CompactMinimumRowHeight,
+            _ => FullMinimumVerticalInset + rows * FullMinimumRowHeight
         };
     }
 
-    private static int ChooseColumnsForHeight(string displayMode, double width, double height, int providerCount, int maxColumns)
+    private static int ChooseColumnsForLayout(int providerCount, int maxColumns)
     {
-        if (width / Math.Max(1, height) >= StrongLandscapeRatio)
-        {
-            return maxColumns;
-        }
+        var bestColumns = 1;
+        var bestRows = int.MaxValue;
 
         for (var columns = 1; columns <= maxColumns; columns++)
         {
             var rows = (int)Math.Ceiling(providerCount / (double)columns);
-            if (GetMinimumWindowHeight(displayMode, rows) <= height)
+
+            if (rows < bestRows)
             {
-                return columns;
+                bestColumns = columns;
+                bestRows = rows;
             }
         }
 
-        return maxColumns;
+        return bestColumns;
     }
 
     private static string GetDisplayMode(double width, double height, int providerCount)
@@ -341,7 +394,6 @@ public partial class UsageOverlayWindow : Window
         }
 
         if (width >= CompactWidthBreakpoint &&
-            height >= CompactHeightBreakpoint &&
             CanFitMode(FullDisplayMode, width, height, providerCount, false))
         {
             return FullDisplayMode;
@@ -366,6 +418,11 @@ public partial class UsageOverlayWindow : Window
         bool showCompactButtons)
     {
         var availableWidth = Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, showCompactButtons));
+        if (providerCount <= 0)
+        {
+            return new CardGrid(0, 0, availableWidth, availableWidth);
+        }
+
         var minimumCardWidth = displayMode switch
         {
             MiniDisplayMode => MiniMinimumCardWidth,
@@ -373,7 +430,7 @@ public partial class UsageOverlayWindow : Window
             _ => FullMinimumCardWidth
         };
         var maxColumns = Math.Clamp((int)Math.Floor(availableWidth / minimumCardWidth), 1, providerCount);
-        var columns = ChooseColumnsForHeight(displayMode, width, height, providerCount, maxColumns);
+        var columns = ChooseColumnsForLayout(providerCount, maxColumns);
         var rows = (int)Math.Ceiling(providerCount / (double)columns);
         var cardSlotWidth = Math.Max(1, Math.Floor(availableWidth / columns));
 
@@ -384,10 +441,82 @@ public partial class UsageOverlayWindow : Window
     {
         return displayMode switch
         {
-            MiniDisplayMode => 34,
+            MiniDisplayMode => MiniHorizontalChromeInset,
             CompactDisplayMode => showCompactButtons ? CompactButtonsHorizontalInset : CompactHorizontalChromeInset,
             _ => 84
         };
+    }
+
+    private static Rect GetVirtualScreenBounds()
+    {
+        if (!HasFiniteValue(SystemParameters.VirtualScreenLeft) ||
+            !HasFiniteValue(SystemParameters.VirtualScreenTop) ||
+            !HasFiniteValue(SystemParameters.VirtualScreenWidth) ||
+            !HasFiniteValue(SystemParameters.VirtualScreenHeight) ||
+            SystemParameters.VirtualScreenWidth <= 0 ||
+            SystemParameters.VirtualScreenHeight <= 0)
+        {
+            return Rect.Empty;
+        }
+
+        return new Rect(
+            SystemParameters.VirtualScreenLeft,
+            SystemParameters.VirtualScreenTop,
+            SystemParameters.VirtualScreenWidth,
+            SystemParameters.VirtualScreenHeight);
+    }
+
+    private static double CoerceDimension(double? savedValue, double fallbackValue, double minimumValue, double maximumValue)
+    {
+        var effectiveMinimum = HasFiniteValue(minimumValue) && minimumValue > 0
+            ? minimumValue
+            : 1;
+        var effectiveMaximum = HasFiniteValue(maximumValue) && maximumValue > 0
+            ? Math.Max(effectiveMinimum, maximumValue)
+            : effectiveMinimum;
+        var value = fallbackValue;
+        if (HasFiniteValue(savedValue) && savedValue.GetValueOrDefault() > 0)
+        {
+            value = savedValue.GetValueOrDefault();
+        }
+
+        if (!HasFiniteValue(value) || value <= 0)
+        {
+            value = effectiveMinimum;
+        }
+
+        return Clamp(value, effectiveMinimum, effectiveMaximum);
+    }
+
+    private static double? GetCurrentDimension(double actualValue, double configuredValue)
+    {
+        var value = HasFiniteValue(actualValue) && actualValue > 0
+            ? actualValue
+            : configuredValue;
+
+        return HasFiniteValue(value) && value > 0
+            ? value
+            : null;
+    }
+
+    private static double Clamp(double value, double minimumValue, double maximumValue)
+    {
+        if (!HasFiniteValue(value))
+        {
+            return minimumValue;
+        }
+
+        if (maximumValue < minimumValue)
+        {
+            return minimumValue;
+        }
+
+        return Math.Min(Math.Max(value, minimumValue), maximumValue);
+    }
+
+    private static bool HasFiniteValue(double? value)
+    {
+        return value.HasValue && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value);
     }
 
     private readonly record struct ResponsiveLayout(

@@ -6,8 +6,14 @@ public sealed class AppSettings
     public const int MinimumUpdateIntervalMinutes = 1;
     public const int MaximumUpdateIntervalMinutes = 1440;
     public const double DefaultCursorIncludedBudgetDollars = 20;
+    public const string CursorUsageModePersonal = "PersonalSubscription";
+    public const string CursorUsageModeTeamsApiKey = "TeamsApiKey";
 
     public int UpdateIntervalMinutes { get; set; } = DefaultUpdateIntervalMinutes;
+
+    public Dictionary<string, bool> EnabledProviders { get; set; } = CreateDefaultEnabledProviders();
+
+    public string CursorUsageMode { get; set; } = string.Empty;
 
     public string CursorApiKey { get; set; } = string.Empty;
 
@@ -21,18 +27,33 @@ public sealed class AppSettings
 
     public bool AutoRunAtLoginEnabled { get; set; }
 
+    public OverlayWindowPlacement OverlayWindowPlacement { get; set; } = new();
+
     public AppSettings Clone()
     {
         return new AppSettings
         {
             UpdateIntervalMinutes = UpdateIntervalMinutes,
+            EnabledProviders = NormalizeEnabledProviders(EnabledProviders),
+            CursorUsageMode = CursorUsageMode,
             CursorApiKey = CursorApiKey,
             CursorIncludedBudgetDollars = CursorIncludedBudgetDollars,
             CursorDashboardCookieHeaderProtected = CursorDashboardCookieHeaderProtected,
             CursorDashboardCookiesCapturedAt = CursorDashboardCookiesCapturedAt,
             ClaudeStatusExporterEnabled = ClaudeStatusExporterEnabled,
-            AutoRunAtLoginEnabled = AutoRunAtLoginEnabled
+            AutoRunAtLoginEnabled = AutoRunAtLoginEnabled,
+            OverlayWindowPlacement = OverlayWindowPlacement?.Clone() ?? new OverlayWindowPlacement()
         };
+    }
+
+    public bool IsProviderEnabled(string providerName)
+    {
+        return !EnabledProviders.TryGetValue(providerName, out var isEnabled) || isEnabled;
+    }
+
+    public void SetProviderEnabled(string providerName, bool isEnabled)
+    {
+        EnabledProviders[providerName] = isEnabled;
     }
 
     public void Normalize()
@@ -42,11 +63,108 @@ public sealed class AppSettings
             MinimumUpdateIntervalMinutes,
             MaximumUpdateIntervalMinutes);
 
+        EnabledProviders = NormalizeEnabledProviders(EnabledProviders);
+        CursorUsageMode = NormalizeCursorUsageMode();
+
         CursorApiKey = CursorApiKey.Trim();
 
         if (CursorIncludedBudgetDollars <= 0 || double.IsNaN(CursorIncludedBudgetDollars) || double.IsInfinity(CursorIncludedBudgetDollars))
         {
             CursorIncludedBudgetDollars = DefaultCursorIncludedBudgetDollars;
         }
+
+        OverlayWindowPlacement ??= new OverlayWindowPlacement();
+        OverlayWindowPlacement.Normalize();
+    }
+
+    private string NormalizeCursorUsageMode()
+    {
+        if (string.Equals(CursorUsageMode, CursorUsageModePersonal, StringComparison.OrdinalIgnoreCase))
+        {
+            return CursorUsageModePersonal;
+        }
+
+        if (string.Equals(CursorUsageMode, CursorUsageModeTeamsApiKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return CursorUsageModeTeamsApiKey;
+        }
+
+        if (!string.IsNullOrWhiteSpace(CursorDashboardCookieHeaderProtected))
+        {
+            return CursorUsageModePersonal;
+        }
+
+        return string.IsNullOrWhiteSpace(CursorApiKey)
+            ? CursorUsageModePersonal
+            : CursorUsageModeTeamsApiKey;
+    }
+
+    private static Dictionary<string, bool> CreateDefaultEnabledProviders()
+    {
+        return KnownProviders.All.ToDictionary(
+            providerName => providerName,
+            _ => true,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, bool> NormalizeEnabledProviders(Dictionary<string, bool>? enabledProviders)
+    {
+        var normalizedProviders = CreateDefaultEnabledProviders();
+
+        if (enabledProviders is not null)
+        {
+            foreach (var pair in enabledProviders)
+            {
+                if (!string.IsNullOrWhiteSpace(pair.Key))
+                {
+                    normalizedProviders[pair.Key.Trim()] = pair.Value;
+                }
+            }
+        }
+
+        return normalizedProviders;
+    }
+}
+
+public sealed class OverlayWindowPlacement
+{
+    public double? Left { get; set; }
+
+    public double? Top { get; set; }
+
+    public double? Width { get; set; }
+
+    public double? Height { get; set; }
+
+    public OverlayWindowPlacement Clone()
+    {
+        return new OverlayWindowPlacement
+        {
+            Left = Left,
+            Top = Top,
+            Width = Width,
+            Height = Height
+        };
+    }
+
+    public void Normalize()
+    {
+        Left = NormalizeFiniteValue(Left);
+        Top = NormalizeFiniteValue(Top);
+        Width = NormalizePositiveValue(Width);
+        Height = NormalizePositiveValue(Height);
+    }
+
+    private static double? NormalizePositiveValue(double? value)
+    {
+        var normalizedValue = NormalizeFiniteValue(value);
+        return normalizedValue is > 0 ? normalizedValue : null;
+    }
+
+    private static double? NormalizeFiniteValue(double? value)
+    {
+        return value.HasValue && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value)
+            ? value
+            : null;
     }
 }

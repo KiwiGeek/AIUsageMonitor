@@ -27,7 +27,7 @@ public sealed class GeminiUsageCollector : IUsageCollector
         Timeout = TimeSpan.FromSeconds(20)
     };
 
-    public string ProviderName => "Gemini";
+    public string ProviderName => KnownProviders.Gemini;
 
     public async Task<ProviderUsage> CollectAsync(CancellationToken cancellationToken)
     {

@@ -13,7 +13,7 @@ public sealed class CodexLogUsageCollector : IUsageCollector
     private DateTimeOffset _nextCommandRefreshAt = DateTimeOffset.MinValue;
     private string _commandRefreshPauseMessage = string.Empty;
 
-    public string ProviderName => "OpenAI";
+    public string ProviderName => KnownProviders.OpenAI;
 
     public async Task<ProviderUsage> CollectAsync(CancellationToken cancellationToken)
     {
@@ -191,18 +191,23 @@ public sealed class CodexLogUsageCollector : IUsageCollector
             using var document = JsonDocument.Parse(line);
             var root = document.RootElement;
 
-            if (!root.TryGetProperty("payload", out var payload) ||
-                !payload.TryGetProperty("rate_limits", out var rateLimits))
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("payload", out var payload) ||
+                payload.ValueKind != JsonValueKind.Object ||
+                !payload.TryGetProperty("rate_limits", out var rateLimits) ||
+                rateLimits.ValueKind != JsonValueKind.Object)
             {
                 return null;
             }
 
             var timestamp = root.TryGetProperty("timestamp", out var timestampElement) &&
+                            timestampElement.ValueKind == JsonValueKind.String &&
                             DateTimeOffset.TryParse(timestampElement.GetString(), out var parsedTimestamp)
                 ? parsedTimestamp
                 : DateTimeOffset.MinValue;
 
-            var limitId = rateLimits.TryGetProperty("limit_id", out var limitIdElement)
+            var limitId = rateLimits.TryGetProperty("limit_id", out var limitIdElement) &&
+                          limitIdElement.ValueKind == JsonValueKind.String
                 ? limitIdElement.GetString()
                 : null;
 
@@ -215,9 +220,9 @@ public sealed class CodexLogUsageCollector : IUsageCollector
                 timestamp,
                 ParseWindow(rateLimits, "primary"),
                 ParseWindow(rateLimits, "secondary"),
-                rateLimits.TryGetProperty("plan_type", out var planElement) ? planElement.GetString() : null);
+                TryGetString(rateLimits, "plan_type"));
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or OverflowException or ArgumentOutOfRangeException)
         {
             return null;
         }
@@ -225,22 +230,78 @@ public sealed class CodexLogUsageCollector : IUsageCollector
 
     private static CodexWindow? ParseWindow(JsonElement rateLimits, string propertyName)
     {
-        if (!rateLimits.TryGetProperty(propertyName, out var window))
+        if (!rateLimits.TryGetProperty(propertyName, out var window) ||
+            window.ValueKind != JsonValueKind.Object)
         {
             return null;
         }
 
-        var usedPercent = window.TryGetProperty("used_percent", out var usedElement)
-            ? usedElement.GetDouble()
-            : 0;
-        var windowMinutes = window.TryGetProperty("window_minutes", out var minutesElement)
-            ? minutesElement.GetInt32()
-            : 0;
-        var resetsAt = window.TryGetProperty("resets_at", out var resetElement)
-            ? DateTimeOffset.FromUnixTimeSeconds(resetElement.GetInt64())
-            : (DateTimeOffset?)null;
+        var usedPercent = TryGetDouble(window, "used_percent") ?? 0;
+        var windowMinutes = TryGetInt32(window, "window_minutes") ?? 0;
+        var resetsAt = TryGetUnixSeconds(window, "resets_at");
+
+        if (usedPercent <= 0 && windowMinutes <= 0 && resetsAt is null)
+        {
+            return null;
+        }
 
         return new CodexWindow(usedPercent, windowMinutes, resetsAt);
+    }
+
+    private static string? TryGetString(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var property) &&
+               property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+    }
+
+    private static double? TryGetDouble(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.Number when property.TryGetDouble(out var value) => value,
+            JsonValueKind.String when double.TryParse(property.GetString(), out var value) => value,
+            _ => null
+        };
+    }
+
+    private static int? TryGetInt32(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.Number when property.TryGetInt32(out var value) => value,
+            JsonValueKind.String when int.TryParse(property.GetString(), out var value) => value,
+            _ => null
+        };
+    }
+
+    private static DateTimeOffset? TryGetUnixSeconds(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        if (property.ValueKind == JsonValueKind.Number && property.TryGetInt64(out var unixSeconds))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
+        }
+
+        return property.ValueKind == JsonValueKind.String &&
+               long.TryParse(property.GetString(), out unixSeconds)
+            ? DateTimeOffset.FromUnixTimeSeconds(unixSeconds)
+            : null;
     }
 
     private static string WindowTitle(int windowMinutes)

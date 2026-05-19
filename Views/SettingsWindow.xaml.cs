@@ -1,17 +1,27 @@
 using System.Windows;
 using AIUsageMonitor.Models;
+using AIUsageMonitor.Services;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace AIUsageMonitor.Views;
 
 public partial class SettingsWindow : Window
 {
-    public SettingsWindow(AppSettings settings)
+    private readonly AppSettingsService _settingsService;
+    private readonly AppLogService _logService;
+
+    public SettingsWindow(AppSettings settings, AppSettingsService settingsService, AppLogService logService)
     {
         InitializeComponent();
+        _settingsService = settingsService;
+        _logService = logService;
         Settings = settings.Clone();
         UpdateIntervalTextBox.Text = Settings.UpdateIntervalMinutes.ToString();
-        CursorApiKeyTextBox.Text = Settings.CursorApiKey;
-        CursorBudgetTextBox.Text = Settings.CursorIncludedBudgetDollars.ToString("0.##");
+        AnthropicProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Anthropic);
+        OpenAiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.OpenAI);
+        GeminiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Gemini);
+        CursorProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Cursor);
+        UpdateCursorModeSummary();
         ClaudeStatusExporterCheckBox.IsChecked = Settings.ClaudeStatusExporterEnabled;
         AutoRunAtLoginCheckBox.IsChecked = Settings.AutoRunAtLoginEnabled || Services.AutoRunService.IsEnabled();
         UpdateIntervalTextBox.SelectAll();
@@ -19,8 +29,6 @@ public partial class SettingsWindow : Window
     }
 
     public AppSettings Settings { get; private set; }
-
-    public bool OpenCursorLoginRequested { get; private set; }
 
     private void SaveButtonOnClick(object sender, RoutedEventArgs e)
     {
@@ -36,47 +44,112 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        if (!double.TryParse(CursorBudgetTextBox.Text.Trim(), out var cursorBudgetDollars))
-        {
-            ValidationTextBlock.Text = "Enter a Cursor budget amount, such as 20.";
-            return;
-        }
-
-        if (cursorBudgetDollars <= 0)
-        {
-            ValidationTextBlock.Text = "Enter a Cursor budget greater than 0.";
-            return;
-        }
-
         Settings.UpdateIntervalMinutes = minutes;
-        Settings.CursorApiKey = CursorApiKeyTextBox.Text.Trim();
-        Settings.CursorIncludedBudgetDollars = cursorBudgetDollars;
-        Settings.ClaudeStatusExporterEnabled = ClaudeStatusExporterCheckBox.IsChecked == true;
-        Settings.AutoRunAtLoginEnabled = AutoRunAtLoginCheckBox.IsChecked == true;
-        Settings.Normalize();
+        ApplySettingsFromControls();
         DialogResult = true;
     }
 
-    private void CursorLoginButtonOnClick(object sender, RoutedEventArgs e)
+    private void CursorSetupButtonOnClick(object sender, RoutedEventArgs e)
     {
-        Settings.UpdateIntervalMinutes = int.TryParse(UpdateIntervalTextBox.Text.Trim(), out var minutes)
-            ? Math.Clamp(minutes, AppSettings.MinimumUpdateIntervalMinutes, AppSettings.MaximumUpdateIntervalMinutes)
-            : Settings.UpdateIntervalMinutes;
-        Settings.CursorApiKey = CursorApiKeyTextBox.Text.Trim();
-        if (double.TryParse(CursorBudgetTextBox.Text.Trim(), out var cursorBudgetDollars) && cursorBudgetDollars > 0)
+        ApplySettingsFromControls();
+
+        var setupWindow = new CursorSetupWindow(Settings, _settingsService, _logService)
         {
-            Settings.CursorIncludedBudgetDollars = cursorBudgetDollars;
+            Owner = this
+        };
+
+        if (setupWindow.ShowDialog() != true)
+        {
+            return;
         }
 
-        Settings.ClaudeStatusExporterEnabled = ClaudeStatusExporterCheckBox.IsChecked == true;
-        Settings.AutoRunAtLoginEnabled = AutoRunAtLoginCheckBox.IsChecked == true;
-        Settings.Normalize();
-        OpenCursorLoginRequested = true;
-        DialogResult = true;
+        Settings = setupWindow.Settings;
+        UpdateCursorModeSummary();
+    }
+
+    private void ProviderSetupButtonOnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton { Tag: string providerName })
+        {
+            return;
+        }
+
+        var setupInfo = providerName switch
+        {
+            KnownProviders.Anthropic => new ProviderSetupInfo(
+                "Anthropic Setup",
+                "Install Claude Code, run claude, and sign in. Seth's AI Usage Monitor reads local Claude Code OAuth and status-line quota data when available.",
+                "Open Claude Code setup",
+                "https://docs.claude.com/en/docs/claude-code/setup"),
+            KnownProviders.OpenAI => new ProviderSetupInfo(
+                "OpenAI Setup",
+                "Install the Codex CLI, run codex, and sign in. Seth's AI Usage Monitor reads quota snapshots from local Codex session logs.",
+                "Open Codex CLI setup",
+                "https://help.openai.com/en/articles/11096431"),
+            KnownProviders.Gemini => new ProviderSetupInfo(
+                "Gemini Setup",
+                "Install Gemini CLI, run gemini, and sign in. Seth's AI Usage Monitor reads Gemini CLI credentials, quota status exports, and local session usage.",
+                "Open Gemini CLI setup",
+                "https://google-gemini.github.io/gemini-cli/docs/get-started/"),
+            _ => null
+        };
+
+        if (setupInfo is null)
+        {
+            return;
+        }
+
+        var setupWindow = new ProviderSetupInfoWindow(
+            setupInfo.Title,
+            setupInfo.Message,
+            setupInfo.LinkText,
+            setupInfo.Url)
+        {
+            Owner = this
+        };
+        setupWindow.ShowDialog();
+    }
+
+    private void AboutButtonOnClick(object sender, RoutedEventArgs e)
+    {
+        var aboutWindow = new AboutWindow
+        {
+            Owner = this
+        };
+        aboutWindow.ShowDialog();
     }
 
     private void CancelButtonOnClick(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
     }
+
+    private void ApplySettingsFromControls()
+    {
+        Settings.SetProviderEnabled(KnownProviders.Anthropic, AnthropicProviderEnabledCheckBox.IsChecked == true);
+        Settings.SetProviderEnabled(KnownProviders.OpenAI, OpenAiProviderEnabledCheckBox.IsChecked == true);
+        Settings.SetProviderEnabled(KnownProviders.Gemini, GeminiProviderEnabledCheckBox.IsChecked == true);
+        Settings.SetProviderEnabled(KnownProviders.Cursor, CursorProviderEnabledCheckBox.IsChecked == true);
+        Settings.ClaudeStatusExporterEnabled = ClaudeStatusExporterCheckBox.IsChecked == true;
+        Settings.AutoRunAtLoginEnabled = AutoRunAtLoginCheckBox.IsChecked == true;
+        MergeSavedCursorDashboardLogin();
+        Settings.Normalize();
+    }
+
+    private void UpdateCursorModeSummary()
+    {
+        Settings.Normalize();
+        CursorModeSummaryTextBlock.Text = string.Equals(Settings.CursorUsageMode, AppSettings.CursorUsageModeTeamsApiKey, StringComparison.Ordinal)
+            ? "Mode: Teams Admin API key"
+            : "Mode: Personal subscription dashboard login";
+    }
+
+    private void MergeSavedCursorDashboardLogin()
+    {
+        var savedSettings = _settingsService.Load();
+        Settings.CursorDashboardCookieHeaderProtected = savedSettings.CursorDashboardCookieHeaderProtected;
+        Settings.CursorDashboardCookiesCapturedAt = savedSettings.CursorDashboardCookiesCapturedAt;
+    }
+
+    private sealed record ProviderSetupInfo(string Title, string Message, string LinkText, string Url);
 }

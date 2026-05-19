@@ -1,0 +1,135 @@
+<Window x:Class="AIUsageMonitor.Views.CursorSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cursor Setup"
+        Width="580"
+        Height="520"
+        MinWidth="540"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="#15171D"
+        Foreground="#F9FAFB"
+        Icon="/Assets/AppIcon.ico"
+        ShowInTaskbar="False">
+    <Border Padding="22"
+            Background="#15171D">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Cursor Setup"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       Foreground="#F9FAFB" />
+
+            <ScrollViewer Grid.Row="1"
+                          Margin="0,20,0,16"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <RadioButton x:Name="PersonalSubscriptionRadioButton"
+                                 Content="Personal subscription"
+                                 Foreground="#D6DAE1"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Checked="CursorModeRadioButtonOnChecked" />
+                    <TextBlock Margin="24,6,0,0"
+                               Text="Use the Cursor dashboard login for personal Pro, Pro+, Ultra, or Max accounts."
+                               Foreground="#8B93A1"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                    <Button x:Name="DashboardLoginButton"
+                            Width="180"
+                            Height="34"
+                            Margin="24,12,0,0"
+                            HorizontalAlignment="Left"
+                            Content="Open dashboard login"
+                            Click="DashboardLoginButtonOnClick" />
+                    <TextBlock x:Name="DashboardLoginStatusTextBlock"
+                               Margin="24,8,0,0"
+                               Foreground="#8B93A1"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+
+                    <Border Margin="0,18,0,18"
+                            BorderBrush="#2A303A"
+                            BorderThickness="0,1,0,0" />
+
+                    <RadioButton x:Name="TeamsApiKeyRadioButton"
+                                 Content="Cursor Teams Admin API key"
+                                 Foreground="#D6DAE1"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Checked="CursorModeRadioButtonOnChecked" />
+                    <TextBlock Margin="24,6,0,0"
+                               Text="Use Cursor Teams spend data and compare it to a configured monthly included budget."
+                               Foreground="#8B93A1"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+
+                    <StackPanel x:Name="TeamsApiSettingsPanel"
+                                Margin="24,12,0,0">
+                        <TextBlock Text="Teams Admin API key"
+                                   Foreground="#A8AFBA"
+                                   FontSize="12" />
+                        <TextBox x:Name="CursorApiKeyTextBox"
+                                 Height="34"
+                                 Margin="0,6,0,0"
+                                 Padding="8,5"
+                                 VerticalContentAlignment="Center"
+                                 Background="#1D2028"
+                                 BorderBrush="#343A46"
+                                 Foreground="#F9FAFB"
+                                 CaretBrush="#F9FAFB"
+                                 FontSize="13" />
+                        <DockPanel Margin="0,10,0,0">
+                            <TextBox x:Name="CursorBudgetTextBox"
+                                     Width="96"
+                                     Height="34"
+                                     Padding="8,5"
+                                     VerticalContentAlignment="Center"
+                                     Background="#1D2028"
+                                     BorderBrush="#343A46"
+                                     Foreground="#F9FAFB"
+                                     CaretBrush="#F9FAFB"
+                                     FontSize="14" />
+                            <TextBlock Margin="10,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="monthly included budget dollars"
+                                       Foreground="#A8AFBA"
+                                       FontSize="12" />
+                        </DockPanel>
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="Teams Admin API keys start with key_. Personal crsr_ keys will not work here."
+                                   Foreground="#8B93A1"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="ValidationTextBlock"
+                               Margin="0,16,0,0"
+                               TextWrapping="Wrap"
+                               Foreground="#FCA5A5"
+                               FontSize="12" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button Width="92"
+                        Height="34"
+                        Margin="0,0,8,0"
+                        Content="Close"
+                        Click="CloseButtonOnClick" />
+                <Button Width="92"
+                        Height="34"
+                        Content="Save"
+                        Click="SaveButtonOnClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

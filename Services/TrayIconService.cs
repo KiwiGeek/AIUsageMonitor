@@ -12,6 +12,8 @@ namespace AIUsageMonitor.Services;
 
 public sealed class TrayIconService : IDisposable
 {
+    private const int WindowPlacementSaveDelayMilliseconds = 500;
+
     private readonly UsageAggregatorService _usageAggregatorService;
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;
@@ -21,6 +23,7 @@ public sealed class TrayIconService : IDisposable
     private readonly WinForms.NotifyIcon _notifyIcon;
     private readonly DispatcherTimer _refreshTimer = new();
     private readonly DispatcherTimer _relativeTimeTimer = new();
+    private readonly DispatcherTimer _windowPlacementSaveTimer = new();
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private AppSettings _settings;
     private UsageOverlayWindow? _overlayWindow;
@@ -61,6 +64,8 @@ public sealed class TrayIconService : IDisposable
         _relativeTimeTimer.Interval = TimeSpan.FromSeconds(30);
         _relativeTimeTimer.Tick += RelativeTimeTimerOnTick;
         _relativeTimeTimer.Start();
+        _windowPlacementSaveTimer.Interval = TimeSpan.FromMilliseconds(WindowPlacementSaveDelayMilliseconds);
+        _windowPlacementSaveTimer.Tick += WindowPlacementSaveTimerOnTick;
         ConfigureRefreshTimer();
         _viewModel.SetAutoRefreshInterval(_settings.UpdateIntervalMinutes);
         UpdateLogSummary();
@@ -75,12 +80,15 @@ public sealed class TrayIconService : IDisposable
         }
 
         _disposed = true;
+        _windowPlacementSaveTimer.Stop();
+        SaveOverlayWindowPlacement();
         _refreshCts?.Cancel();
         _refreshCts = null;
         _refreshTimer.Stop();
         _refreshTimer.Tick -= RefreshTimerOnTick;
         _relativeTimeTimer.Stop();
         _relativeTimeTimer.Tick -= RelativeTimeTimerOnTick;
+        _windowPlacementSaveTimer.Tick -= WindowPlacementSaveTimerOnTick;
         _notifyIcon.MouseUp -= NotifyIconOnMouseUp;
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
@@ -112,6 +120,7 @@ public sealed class TrayIconService : IDisposable
     {
         if (_overlayWindow?.IsVisible == true)
         {
+            SaveOverlayWindowPlacement();
             _overlayWindow.Hide();
             return;
         }
@@ -122,6 +131,7 @@ public sealed class TrayIconService : IDisposable
     public void ShowOverlay()
     {
         EnsureOverlayWindow();
+        _overlayWindow!.EnsureValidPlacement();
         _overlayWindow!.Show();
         _overlayWindow.Activate();
     }
@@ -137,11 +147,85 @@ public sealed class TrayIconService : IDisposable
         {
             DataContext = _viewModel
         };
+        _overlayWindow.ApplyStartupPlacement(_settings.OverlayWindowPlacement);
         _overlayWindow.ReloadRequested += (_, _) => _ = ManualRefreshAsync();
         _overlayWindow.SettingsRequested += (_, _) => ShowSettings();
         _overlayWindow.LogsRequested += (_, _) => ShowLogs();
         _overlayWindow.ExitRequested += (_, _) => Exit();
-        _overlayWindow.Closed += (_, _) => _overlayWindow = null;
+        _overlayWindow.LocationChanged += OverlayWindowOnLocationChanged;
+        _overlayWindow.SizeChanged += OverlayWindowOnSizeChanged;
+        _overlayWindow.IsVisibleChanged += OverlayWindowOnIsVisibleChanged;
+        _overlayWindow.Closed += OverlayWindowOnClosed;
+    }
+
+    private void OverlayWindowOnLocationChanged(object? sender, EventArgs e)
+    {
+        QueueOverlayWindowPlacementSave();
+    }
+
+    private void OverlayWindowOnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        QueueOverlayWindowPlacementSave();
+    }
+
+    private void OverlayWindowOnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is false)
+        {
+            SaveOverlayWindowPlacement();
+        }
+    }
+
+    private void OverlayWindowOnClosed(object? sender, EventArgs e)
+    {
+        if (sender is UsageOverlayWindow window)
+        {
+            SaveOverlayWindowPlacement(window);
+            window.LocationChanged -= OverlayWindowOnLocationChanged;
+            window.SizeChanged -= OverlayWindowOnSizeChanged;
+            window.IsVisibleChanged -= OverlayWindowOnIsVisibleChanged;
+            window.Closed -= OverlayWindowOnClosed;
+        }
+
+        _overlayWindow = null;
+    }
+
+    private void QueueOverlayWindowPlacementSave()
+    {
+        if (_disposed || _overlayWindow is null)
+        {
+            return;
+        }
+
+        _windowPlacementSaveTimer.Stop();
+        _windowPlacementSaveTimer.Start();
+    }
+
+    private void WindowPlacementSaveTimerOnTick(object? sender, EventArgs e)
+    {
+        _windowPlacementSaveTimer.Stop();
+        SaveOverlayWindowPlacement();
+    }
+
+    private void SaveOverlayWindowPlacement()
+    {
+        if (_overlayWindow is not null)
+        {
+            SaveOverlayWindowPlacement(_overlayWindow);
+        }
+    }
+
+    private void SaveOverlayWindowPlacement(UsageOverlayWindow window)
+    {
+        try
+        {
+            _settings.OverlayWindowPlacement = window.GetCurrentPlacement();
+            _settingsService.Save(_settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            _logService.Warning("Settings", $"Could not save window placement: {ex.Message}");
+        }
     }
 
     private async Task ManualRefreshAsync()
@@ -176,7 +260,7 @@ public sealed class TrayIconService : IDisposable
 
     private void ShowSettings()
     {
-        var settingsWindow = new SettingsWindow(_settings);
+        var settingsWindow = new SettingsWindow(_settings, _settingsService, _logService);
 
         if (_overlayWindow?.IsVisible == true)
         {
@@ -201,12 +285,6 @@ public sealed class TrayIconService : IDisposable
         _logService.Info("Settings", "Settings saved.");
         UpdateLogSummary();
 
-        if (settingsWindow.OpenCursorLoginRequested)
-        {
-            ShowCursorDashboardLogin();
-            return;
-        }
-
         _ = ManualRefreshAsync();
     }
 
@@ -224,7 +302,7 @@ public sealed class TrayIconService : IDisposable
 
     private void EnsureClaudeStatusExporterIfEnabled()
     {
-        if (!_settings.ClaudeStatusExporterEnabled)
+        if (!_settings.IsProviderEnabled(KnownProviders.Anthropic) || !_settings.ClaudeStatusExporterEnabled)
         {
             return;
         }

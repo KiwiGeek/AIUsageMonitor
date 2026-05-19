@@ -58,6 +58,8 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
+    public bool HasProviders => Providers.Count > 0;
+
     public void ApplySnapshot(UsageSnapshot snapshot, string dataPath)
     {
         Providers.Clear();
@@ -67,6 +69,7 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
             Providers.Add(new ProviderUsageCard(provider));
         }
 
+        OnPropertyChanged(nameof(HasProviders));
         var generatedAt = snapshot.GeneratedAt == default ? DateTimeOffset.Now : snapshot.GeneratedAt;
         GeneratedAtText = $"Updated {generatedAt.ToLocalTime():MMM d, yyyy h:mm tt}";
         SourcePathText = string.IsNullOrWhiteSpace(snapshot.Source) ? dataPath : snapshot.Source;
@@ -76,9 +79,16 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
     public void SetChecking(IEnumerable<string> providerNames)
     {
         var names = providerNames.ToList();
-
-        if (Providers.Count == 0)
+        if (names.Count == 0)
         {
+            Providers.Clear();
+            OnPropertyChanged(nameof(HasProviders));
+            return;
+        }
+
+        if (ProviderListChanged(names))
+        {
+            Providers.Clear();
             foreach (var name in names)
             {
                 var card = new ProviderUsageCard(new ProviderUsage
@@ -92,6 +102,7 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
                 Providers.Add(card);
             }
 
+            OnPropertyChanged(nameof(HasProviders));
             return;
         }
 
@@ -99,6 +110,20 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
         {
             provider.SetChecking(true);
         }
+    }
+
+    private bool ProviderListChanged(IReadOnlyCollection<string> providerNames)
+    {
+        if (Providers.Count != providerNames.Count)
+        {
+            return true;
+        }
+
+        var existingProviderNames = Providers
+            .Select(provider => provider.ShortName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return providerNames.Any(providerName => !existingProviderNames.Contains(providerName));
     }
 
     public void RefreshRelativeTimes()
