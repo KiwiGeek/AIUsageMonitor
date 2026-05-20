@@ -7,3 +7,4 @@
 - [ ] Better card sizing
 - [ ] Better matching of accent colors to waifu backgrounds
 - [ ] Remove resize handle; make window directly resizable
+- [ ] Add mouse hover effect
