@@ -21,9 +21,14 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
         LastCheckedAt = usage.LastCheckedAt;
         AccentBrush = UsageBrushes.ProviderAccent(usage.Name);
         Windows = usage.Windows.Select(window => new UsageWindowDisplay(window)).ToList();
-        PrimaryRemainingPercent = Windows.Count == 0
-            ? 0
-            : Windows.Min(window => window.RemainingPercent);
+        // Use the minimum remaining percent across non-exhausted windows so that a single
+        // exhausted bucket (e.g. Gemini Pro at 0%) doesn't mark the whole provider as
+        // Exhausted when other buckets (e.g. Flash) still have quota. Only show Exhausted
+        // when every window is at zero.
+        var nonExhaustedWindows = Windows.Where(w => w.RemainingPercent > 0).ToList();
+        PrimaryRemainingPercent = nonExhaustedWindows.Count > 0
+            ? nonExhaustedWindows.Min(w => w.RemainingPercent)
+            : 0;
 
         var status = usage.IsUnavailable || Windows.Count == 0
             ? UsageStatus.Unavailable
