@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using AIUsageMonitor.Models;
 
@@ -12,6 +13,8 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
     private const string ExportName = "ai-usage-monitor-usage.json";
     private const string LegacyExportName = "apimonitor-usage.json";
     private const string ExporterScriptName = "ai-usage-monitor-statusline.ps1";
+    private const string TokenRefreshEndpoint = "https://platform.claude.com/v1/oauth/token";
+    private const string OAuthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
     private static readonly TimeSpan LocalExportMaxAge = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan CommandSuccessCooldown = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan CommandFailureBackoff = TimeSpan.FromMinutes(10);
@@ -273,7 +276,12 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         }
 
         account ??= TryReadClaudeAccount(credentialsPath);
-        var accessToken = account?.AccessToken;
+        if (account is null)
+        {
+            return null;
+        }
+
+        var accessToken = await GetUsableAccessTokenAsync(credentialsPath, account, cancellationToken);
         if (string.IsNullOrWhiteSpace(accessToken))
         {
             return null;
@@ -294,7 +302,7 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
                 "Anthropic",
                 "Claude OAuth usage endpoint timed out. Local status-line export will be used if it is fresh.",
                 credentialsPath,
-                account?.PlanName ?? string.Empty);
+                account.PlanName);
         }
         catch (HttpRequestException ex)
         {
@@ -302,7 +310,7 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
                 "Anthropic",
                 $"Claude OAuth usage endpoint failed: {ex.Message}",
                 credentialsPath,
-                account?.PlanName ?? string.Empty);
+                account.PlanName);
         }
 
         using (response)
@@ -311,9 +319,9 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         {
             return ProviderUsageFactory.Unavailable(
                 "Anthropic",
-                "Claude OAuth usage endpoint rejected the cached Claude Code credentials. Local status-line export is preferred; start Claude Code once if no status export exists yet.",
+                "Claude OAuth usage endpoint rejected credentials (token refresh also failed). Re-run Claude Code login to restore access.",
                 credentialsPath,
-                account?.PlanName ?? string.Empty);
+                account.PlanName);
         }
 
         response.EnsureSuccessStatusCode();
@@ -334,13 +342,109 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         return new ProviderUsage
         {
             Name = "Anthropic",
-            PlanName = account?.PlanName ?? string.Empty,
+            PlanName = account.PlanName,
             Source = "Claude OAuth usage endpoint",
-            StatusMessage = string.IsNullOrWhiteSpace(account?.PlanName)
+            StatusMessage = string.IsNullOrWhiteSpace(account.PlanName)
                 ? "Claude quota from local Claude Code OAuth credentials."
                 : $"Claude {account.PlanName} quota from local Claude Code OAuth credentials.",
             Windows = windows
         };
+        }
+    }
+
+    private static async Task<string?> GetUsableAccessTokenAsync(
+        string credentialsPath,
+        ClaudeAccount account,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(account.AccessToken) &&
+            account.ExpiresAtMs is not null &&
+            DateTimeOffset.FromUnixTimeMilliseconds(account.ExpiresAtMs.Value) > DateTimeOffset.UtcNow.AddMinutes(5))
+        {
+            return account.AccessToken;
+        }
+
+        if (string.IsNullOrWhiteSpace(account.RefreshToken))
+        {
+            return account.AccessToken;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, TokenRefreshEndpoint)
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["refresh_token"] = account.RefreshToken,
+                ["client_id"] = OAuthClientId
+            })
+        };
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await HttpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (Exception)
+        {
+            return account.AccessToken;
+        }
+
+        using (response)
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var root = document.RootElement;
+
+            if (!root.TryGetProperty("access_token", out var accessTokenElement))
+            {
+                return account.AccessToken;
+            }
+
+            var newAccessToken = accessTokenElement.GetString();
+            if (string.IsNullOrWhiteSpace(newAccessToken))
+            {
+                return account.AccessToken;
+            }
+
+            long? newExpiresAtMs = null;
+            if (root.TryGetProperty("expires_in", out var expiresInElement) &&
+                expiresInElement.TryGetInt64(out var expiresInSeconds))
+            {
+                newExpiresAtMs = DateTimeOffset.UtcNow.AddSeconds(expiresInSeconds).ToUnixTimeMilliseconds();
+            }
+
+            await TryUpdateCredentialsAsync(credentialsPath, newAccessToken, newExpiresAtMs, cancellationToken);
+            return newAccessToken;
+        }
+    }
+
+    private static async Task TryUpdateCredentialsAsync(
+        string credentialsPath,
+        string newAccessToken,
+        long? newExpiresAtMs,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var text = await File.ReadAllTextAsync(credentialsPath, cancellationToken);
+            var node = JsonNode.Parse(text);
+            if (node?["claudeAiOauth"] is JsonObject oauth)
+            {
+                oauth["accessToken"] = newAccessToken;
+                if (newExpiresAtMs.HasValue)
+                {
+                    oauth["expiresAt"] = newExpiresAtMs.Value;
+                }
+
+                await File.WriteAllTextAsync(
+                    credentialsPath,
+                    node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                    cancellationToken);
+            }
+        }
+        catch (Exception)
+        {
         }
     }
 
@@ -357,7 +461,9 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
             if (root.TryGetProperty("claudeAiOauth", out var oauth) &&
                 oauth.TryGetProperty("accessToken", out var tokenElement))
             {
-                return new ClaudeAccount(tokenElement.GetString(), planName);
+                string? refreshToken = oauth.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
+                long? expiresAtMs = oauth.TryGetProperty("expiresAt", out var exp) && exp.TryGetInt64(out var ms) ? ms : null;
+                return new ClaudeAccount(tokenElement.GetString(), refreshToken, expiresAtMs, planName);
             }
         }
         catch (JsonException)
@@ -579,7 +685,7 @@ public sealed partial class ClaudeStatusFileUsageCollector : IUsageCollector
         ProviderUsage? StaleUsage,
         StaleLocalExport? StaleExport);
 
-    private sealed record ClaudeAccount(string? AccessToken, string PlanName);
+    private sealed record ClaudeAccount(string? AccessToken, string? RefreshToken, long? ExpiresAtMs, string PlanName);
 
     private sealed record StaleLocalExport(string Path, DateTimeOffset UpdatedAt);
 
