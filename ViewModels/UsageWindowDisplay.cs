@@ -20,7 +20,7 @@ public sealed class UsageWindowDisplay
         LimitText = string.IsNullOrWhiteSpace(Detail) ? RemainingText : Detail;
         ResetText = usageWindow.ResetAt is { } resetAt
             ? FormatResetText(resetAt)
-            : "Reset time unavailable";
+            : FormatMissingResetText(usageWindow);
         ResetRelativeText = usageWindow.ResetAt is { } relativeResetAt
             ? FormatResetRelativeText(relativeResetAt)
             : string.Empty;
@@ -122,5 +122,12 @@ public sealed class UsageWindowDisplay
         var localResetAt = resetAt.ToLocalTime();
         var prefix = localResetAt <= DateTimeOffset.Now ? "Reset" : "Resets";
         return $"{prefix} {localResetAt:MMM d, h:mm tt}";
+    }
+
+    private static string FormatMissingResetText(UsageWindow usageWindow)
+    {
+        return usageWindow.RemainingPercent >= 99.9
+            ? "No active reset"
+            : "Reset time unavailable";
     }
 }
