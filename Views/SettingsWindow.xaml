@@ -174,7 +174,9 @@
                                         </Grid>
                                     </Border>
 
-                                    <Border Padding="12">
+                                    <Border Padding="12"
+                                            BorderBrush="#2A303A"
+                                            BorderThickness="0,0,0,1">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -204,6 +206,74 @@
                                                     VerticalAlignment="Top"
                                                     Content="Setup"
                                                     Click="CursorSetupButtonOnClick" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Padding="12"
+                                            BorderBrush="#2A303A"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <CheckBox x:Name="DeepSeekProviderEnabledCheckBox"
+                                                          Content="DeepSeek"
+                                                          Foreground="#D6DAE1"
+                                                          FontSize="13"
+                                                          FontWeight="SemiBold" />
+                                                <TextBlock Margin="24,4,0,0"
+                                                           Text="DeepSeek API credit balance via API key."
+                                                           Foreground="#8B93A1"
+                                                           FontSize="12"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock x:Name="DeepSeekApiKeySummaryTextBlock"
+                                                           Margin="24,8,0,0"
+                                                           Foreground="#A8AFBA"
+                                                           FontSize="12"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <Button Grid.Column="1"
+                                                    Width="82"
+                                                    Height="30"
+                                                    Margin="12,0,0,0"
+                                                    VerticalAlignment="Top"
+                                                    Content="Setup"
+                                                    Click="DeepSeekSetupButtonOnClick" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Padding="12">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <CheckBox x:Name="GitHubCopilotProviderEnabledCheckBox"
+                                                          Content="GitHub Copilot"
+                                                          Foreground="#D6DAE1"
+                                                          FontSize="13"
+                                                          FontWeight="SemiBold" />
+                                                <TextBlock Margin="24,4,0,0"
+                                                           Text="Premium request quota via internal Copilot API (undocumented)."
+                                                           Foreground="#8B93A1"
+                                                           FontSize="12"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock x:Name="GitHubCopilotApiKeySummaryTextBlock"
+                                                           Margin="24,8,0,0"
+                                                           Foreground="#A8AFBA"
+                                                           FontSize="12"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <Button Grid.Column="1"
+                                                    Width="82"
+                                                    Height="30"
+                                                    Margin="12,0,0,0"
+                                                    VerticalAlignment="Top"
+                                                    Content="Setup"
+                                                    Click="GitHubCopilotSetupButtonOnClick" />
                                         </Grid>
                                     </Border>
                                 </StackPanel>

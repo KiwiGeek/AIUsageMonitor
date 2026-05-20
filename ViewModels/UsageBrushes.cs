@@ -9,6 +9,8 @@ internal static class UsageBrushes
     private static readonly MediaBrush OpenAiAccent = FrozenBrush("#10B981");
     private static readonly MediaBrush GeminiAccent = FrozenBrush("#60A5FA");
     private static readonly MediaBrush CursorAccent = FrozenBrush("#A78BFA");
+    private static readonly MediaBrush DeepSeekAccent = FrozenBrush("#4D9EFF");
+    private static readonly MediaBrush GitHubCopilotAccent = FrozenBrush("#8957E5");
     private static readonly MediaBrush DefaultAccent = FrozenBrush("#E5E7EB");
 
     public static MediaBrush ProviderAccent(string providerName)
@@ -30,7 +32,17 @@ internal static class UsageBrushes
             return GeminiAccent;
         }
 
-        return normalized.StartsWith("cursor") ? CursorAccent : DefaultAccent;
+        if (normalized.StartsWith("cursor"))
+        {
+            return CursorAccent;
+        }
+
+        if (normalized.StartsWith("deepseek"))
+        {
+            return DeepSeekAccent;
+        }
+
+        return normalized.StartsWith("github") ? GitHubCopilotAccent : DefaultAccent;
     }
 
     public static MediaBrush FrozenBrush(string hex)

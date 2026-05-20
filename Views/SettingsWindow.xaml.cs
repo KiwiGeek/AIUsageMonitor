@@ -21,7 +21,11 @@ public partial class SettingsWindow : Window
         OpenAiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.OpenAI);
         GeminiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Gemini);
         CursorProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Cursor);
+        DeepSeekProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.DeepSeek);
+        GitHubCopilotProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.GitHubCopilot);
         UpdateCursorModeSummary();
+        UpdateDeepSeekApiKeySummary();
+        UpdateGitHubCopilotApiKeySummary();
         ClaudeStatusExporterCheckBox.IsChecked = Settings.ClaudeStatusExporterEnabled;
         AutoRunAtLoginCheckBox.IsChecked = Settings.AutoRunAtLoginEnabled || Services.AutoRunService.IsEnabled();
         UpdateIntervalTextBox.SelectAll();
@@ -130,10 +134,62 @@ public partial class SettingsWindow : Window
         Settings.SetProviderEnabled(KnownProviders.OpenAI, OpenAiProviderEnabledCheckBox.IsChecked == true);
         Settings.SetProviderEnabled(KnownProviders.Gemini, GeminiProviderEnabledCheckBox.IsChecked == true);
         Settings.SetProviderEnabled(KnownProviders.Cursor, CursorProviderEnabledCheckBox.IsChecked == true);
+        Settings.SetProviderEnabled(KnownProviders.DeepSeek, DeepSeekProviderEnabledCheckBox.IsChecked == true);
+        Settings.SetProviderEnabled(KnownProviders.GitHubCopilot, GitHubCopilotProviderEnabledCheckBox.IsChecked == true);
         Settings.ClaudeStatusExporterEnabled = ClaudeStatusExporterCheckBox.IsChecked == true;
         Settings.AutoRunAtLoginEnabled = AutoRunAtLoginCheckBox.IsChecked == true;
         MergeSavedCursorDashboardLogin();
         Settings.Normalize();
+    }
+
+    private void DeepSeekSetupButtonOnClick(object sender, RoutedEventArgs e)
+    {
+        ApplySettingsFromControls();
+
+        var setupWindow = new DeepSeekSetupWindow(Settings)
+        {
+            Owner = this
+        };
+
+        if (setupWindow.ShowDialog() != true)
+        {
+            return;
+        }
+
+        Settings = setupWindow.Settings;
+        UpdateDeepSeekApiKeySummary();
+    }
+
+    private void UpdateDeepSeekApiKeySummary()
+    {
+        DeepSeekApiKeySummaryTextBlock.Text = string.IsNullOrWhiteSpace(Settings.DeepSeekApiKey)
+            ? "API key: not configured"
+            : "API key: configured";
+    }
+
+    private void GitHubCopilotSetupButtonOnClick(object sender, RoutedEventArgs e)
+    {
+        ApplySettingsFromControls();
+
+        var setupWindow = new GitHubCopilotSetupWindow(Settings)
+        {
+            Owner = this
+        };
+
+        if (setupWindow.ShowDialog() != true)
+        {
+            return;
+        }
+
+        Settings = setupWindow.Settings;
+        UpdateGitHubCopilotApiKeySummary();
+    }
+
+    private void UpdateGitHubCopilotApiKeySummary()
+    {
+        GitHubCopilotApiKeySummaryTextBlock.Text = string.IsNullOrWhiteSpace(Settings.GitHubCopilotApiKey)
+            ? "Token: not configured"
+            : "Token: configured";
     }
 
     private void UpdateCursorModeSummary()

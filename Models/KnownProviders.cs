@@ -6,12 +6,16 @@ public static class KnownProviders
     public const string OpenAI = "OpenAI";
     public const string Gemini = "Gemini";
     public const string Cursor = "Cursor";
+    public const string DeepSeek = "DeepSeek";
+    public const string GitHubCopilot = "GitHub Copilot";
 
     public static readonly IReadOnlyList<string> All =
     [
         Anthropic,
         OpenAI,
         Gemini,
-        Cursor
+        Cursor,
+        DeepSeek,
+        GitHubCopilot
     ];
 }

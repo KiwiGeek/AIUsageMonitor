@@ -23,6 +23,12 @@ public sealed class AppSettings
 
     public DateTimeOffset? CursorDashboardCookiesCapturedAt { get; set; }
 
+    public string DeepSeekApiKey { get; set; } = string.Empty;
+
+    public Dictionary<string, decimal> DeepSeekLastBalances { get; set; } = [];
+
+    public string GitHubCopilotApiKey { get; set; } = string.Empty;
+
     public bool ClaudeStatusExporterEnabled { get; set; } = true;
 
     public bool AutoRunAtLoginEnabled { get; set; }
@@ -40,6 +46,9 @@ public sealed class AppSettings
             CursorIncludedBudgetDollars = CursorIncludedBudgetDollars,
             CursorDashboardCookieHeaderProtected = CursorDashboardCookieHeaderProtected,
             CursorDashboardCookiesCapturedAt = CursorDashboardCookiesCapturedAt,
+            DeepSeekApiKey = DeepSeekApiKey,
+            DeepSeekLastBalances = new Dictionary<string, decimal>(DeepSeekLastBalances),
+            GitHubCopilotApiKey = GitHubCopilotApiKey,
             ClaudeStatusExporterEnabled = ClaudeStatusExporterEnabled,
             AutoRunAtLoginEnabled = AutoRunAtLoginEnabled,
             OverlayWindowPlacement = OverlayWindowPlacement?.Clone() ?? new OverlayWindowPlacement()
@@ -67,6 +76,9 @@ public sealed class AppSettings
         CursorUsageMode = NormalizeCursorUsageMode();
 
         CursorApiKey = CursorApiKey.Trim();
+        DeepSeekApiKey = DeepSeekApiKey.Trim();
+        DeepSeekLastBalances ??= [];
+        GitHubCopilotApiKey = GitHubCopilotApiKey.Trim();
 
         if (CursorIncludedBudgetDollars <= 0 || double.IsNaN(CursorIncludedBudgetDollars) || double.IsInfinity(CursorIncludedBudgetDollars))
         {

@@ -26,7 +26,9 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
             "Cursor"    => "pack://application:,,,/Assets/cursor-girl.png",
             "Gemini"    => "pack://application:,,,/Assets/gemini-girl.png",
             "OpenAI"    => "pack://application:,,,/Assets/codex-girl.png",
-            _           => null
+            "DeepSeek"       => "pack://application:,,,/Assets/deepseek-girl.png",
+            "GitHub Copilot" => "pack://application:,,,/Assets/copilot-girl.png",
+            _                => null
         };
         Windows = usage.Windows.Select(window => new UsageWindowDisplay(window)).ToList();
         // Use the minimum remaining percent across non-exhausted windows so that a single

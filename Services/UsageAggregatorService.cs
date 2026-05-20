@@ -22,7 +22,9 @@ public sealed class UsageAggregatorService
             new ClaudeStatusFileUsageCollector(),
             new CodexLogUsageCollector(),
             new GeminiUsageCollector(),
-            new CursorUsageCollector(settingsService)
+            new CursorUsageCollector(settingsService),
+            new DeepSeekUsageCollector(settingsService),
+            new GitHubCopilotUsageCollector(settingsService)
         ];
     }
 

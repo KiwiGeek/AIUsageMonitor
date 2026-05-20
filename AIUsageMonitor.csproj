@@ -17,6 +17,8 @@
     <Resource Include="Assets\cursor-girl.png" />
     <Resource Include="Assets\gemini-girl.png" />
     <Resource Include="Assets\codex-girl.png" />
+    <Resource Include="Assets\deepseek-girl.png" />
+    <Resource Include="Assets\copilot-girl.png" />
 
     <None Update="usage.fake.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
