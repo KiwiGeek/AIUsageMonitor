@@ -20,6 +20,14 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
         IsUnavailable = usage.IsUnavailable;
         LastCheckedAt = usage.LastCheckedAt;
         AccentBrush = UsageBrushes.ProviderAccent(usage.Name);
+        BackgroundImage = ShortName switch
+        {
+            "Anthropic" => "pack://application:,,,/Assets/claude-girl.png",
+            "Cursor"    => "pack://application:,,,/Assets/cursor-girl.png",
+            "Gemini"    => "pack://application:,,,/Assets/gemini-girl.png",
+            "OpenAI"    => "pack://application:,,,/Assets/codex-girl.png",
+            _           => null
+        };
         Windows = usage.Windows.Select(window => new UsageWindowDisplay(window)).ToList();
         // Use the minimum remaining percent across non-exhausted windows so that a single
         // exhausted bucket (e.g. Gemini Pro at 0%) doesn't mark the whole provider as
@@ -84,6 +92,8 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
     public MediaBrush SummaryProgressBrush { get; }
 
     public MediaBrush AccentBrush { get; }
+
+    public string? BackgroundImage { get; }
 
     public IReadOnlyList<UsageWindowDisplay> Windows { get; }
 

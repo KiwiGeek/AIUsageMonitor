@@ -97,6 +97,7 @@
             <Setter Property="BorderBrush" Value="#303641" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="ClipToBounds" Value="True" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
                     <Setter Property="Margin" Value="4" />
@@ -394,6 +395,13 @@
                             <DataTemplate>
                                 <Border Style="{StaticResource ProviderCardStyle}">
                                     <Grid>
+                                        <Image Source="{Binding BackgroundImage}"
+                                               Stretch="UniformToFill"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               Margin="-18"
+                                               Opacity="0.28"
+                                               IsHitTestVisible="False" />
                                         <Grid Style="{StaticResource FullOnlyElementStyle}">
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />

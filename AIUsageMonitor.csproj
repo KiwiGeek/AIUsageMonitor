@@ -13,6 +13,10 @@
 
   <ItemGroup>
     <Resource Include="Assets\AppIcon.ico" />
+    <Resource Include="Assets\claude-girl.png" />
+    <Resource Include="Assets\cursor-girl.png" />
+    <Resource Include="Assets\gemini-girl.png" />
+    <Resource Include="Assets\codex-girl.png" />
 
     <None Update="usage.fake.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
