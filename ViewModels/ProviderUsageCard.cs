@@ -11,7 +11,7 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
     private string _checkedText = string.Empty;
     private readonly string _summaryText;
 
-    public ProviderUsageCard(ProviderUsage usage)
+    public ProviderUsageCard(ProviderUsage usage, bool waifuEnabled = false)
     {
         ShortName = string.IsNullOrWhiteSpace(usage.Name) ? "Provider" : usage.Name.Trim();
         Name = FormatDisplayName(ShortName, usage.PlanName);
@@ -20,16 +20,16 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
         IsUnavailable = usage.IsUnavailable;
         LastCheckedAt = usage.LastCheckedAt;
         AccentBrush = UsageBrushes.ProviderAccent(usage.Name);
-        BackgroundImage = ShortName switch
+        BackgroundImage = waifuEnabled ? ShortName switch
         {
-            "Anthropic" => "pack://application:,,,/Assets/claude-girl.png",
-            "Cursor"    => "pack://application:,,,/Assets/cursor-girl.png",
-            "Gemini"    => "pack://application:,,,/Assets/gemini-girl.png",
-            "OpenAI"    => "pack://application:,,,/Assets/codex-girl.png",
+            "Anthropic"      => "pack://application:,,,/Assets/claude-girl.png",
+            "Cursor"         => "pack://application:,,,/Assets/cursor-girl.png",
+            "Gemini"         => "pack://application:,,,/Assets/gemini-girl.png",
+            "OpenAI"         => "pack://application:,,,/Assets/codex-girl.png",
             "DeepSeek"       => "pack://application:,,,/Assets/deepseek-girl.png",
             "GitHub Copilot" => "pack://application:,,,/Assets/copilot-girl.png",
             _                => null
-        };
+        } : null;
         Windows = usage.Windows.Select(window => new UsageWindowDisplay(window)).ToList();
         // Use the minimum remaining percent across non-exhausted windows so that a single
         // exhausted bucket (e.g. Gemini Pro at 0%) doesn't mark the whole provider as

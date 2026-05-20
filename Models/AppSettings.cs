@@ -29,6 +29,8 @@ public sealed class AppSettings
 
     public string GitHubCopilotApiKey { get; set; } = string.Empty;
 
+    public bool WaifuSquadEnabled { get; set; }
+
     public bool ClaudeStatusExporterEnabled { get; set; } = true;
 
     public bool AutoRunAtLoginEnabled { get; set; }
@@ -49,6 +51,7 @@ public sealed class AppSettings
             DeepSeekApiKey = DeepSeekApiKey,
             DeepSeekLastBalances = new Dictionary<string, decimal>(DeepSeekLastBalances),
             GitHubCopilotApiKey = GitHubCopilotApiKey,
+            WaifuSquadEnabled = WaifuSquadEnabled,
             ClaudeStatusExporterEnabled = ClaudeStatusExporterEnabled,
             AutoRunAtLoginEnabled = AutoRunAtLoginEnabled,
             OverlayWindowPlacement = OverlayWindowPlacement?.Clone() ?? new OverlayWindowPlacement()

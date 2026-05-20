@@ -60,13 +60,13 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
 
     public bool HasProviders => Providers.Count > 0;
 
-    public void ApplySnapshot(UsageSnapshot snapshot, string dataPath)
+    public void ApplySnapshot(UsageSnapshot snapshot, string dataPath, bool waifuEnabled = false)
     {
         Providers.Clear();
 
         foreach (var provider in snapshot.Providers)
         {
-            Providers.Add(new ProviderUsageCard(provider));
+            Providers.Add(new ProviderUsageCard(provider, waifuEnabled));
         }
 
         OnPropertyChanged(nameof(HasProviders));

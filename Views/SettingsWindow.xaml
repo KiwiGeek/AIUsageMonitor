@@ -6,14 +6,13 @@
         Height="700"
         MinWidth="500"
         MinHeight="620"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="CanResize"
         Background="#15171D"
         Foreground="#F9FAFB"
         Icon="/Assets/AppIcon.ico"
-        ShowInTaskbar="False">
-    <Border Padding="22"
-            Background="#15171D">
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <Border Padding="22" Background="#15171D">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -21,20 +20,20 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Text="Settings"
-                       FontSize="22"
+            <TextBlock FontSize="22"
                        FontWeight="SemiBold"
-                       Foreground="#F9FAFB" />
+                       Foreground="#F9FAFB"
+                       Text="Settings" />
 
             <ScrollViewer Grid.Row="1"
                           Margin="0,22,0,16"
                           VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <StackPanel>
-                        <TextBlock Text="Update interval"
-                                   FontSize="13"
+                        <TextBlock FontSize="13"
                                    FontWeight="SemiBold"
-                                   Foreground="#D6DAE1" />
+                                   Foreground="#D6DAE1"
+                                   Text="Update interval" />
                         <DockPanel Margin="0,8,0,0">
                             <TextBox x:Name="UpdateIntervalTextBox"
                                      Width="96"
@@ -43,38 +42,38 @@
                                      VerticalContentAlignment="Center"
                                      Background="#1D2028"
                                      BorderBrush="#343A46"
-                                     Foreground="#F9FAFB"
                                      CaretBrush="#F9FAFB"
-                                     FontSize="14" />
+                                     FontSize="14"
+                                     Foreground="#F9FAFB" />
                             <TextBlock Margin="10,0,0,0"
                                        VerticalAlignment="Center"
-                                       Text="minutes"
+                                       FontSize="13"
                                        Foreground="#A8AFBA"
-                                       FontSize="13" />
+                                       Text="minutes" />
                         </DockPanel>
                         <TextBlock Margin="0,8,0,0"
-                                   Text="Default is 20. Manual refresh still runs immediately."
+                                   FontSize="12"
                                    Foreground="#8B93A1"
-                                   FontSize="12" />
+                                   Text="Default is 20. Manual refresh still runs immediately." />
                     </StackPanel>
 
                     <StackPanel Margin="0,22,0,0">
-                        <TextBlock Text="Providers"
-                                   FontSize="13"
+                        <TextBlock FontSize="13"
                                    FontWeight="SemiBold"
-                                   Foreground="#D6DAE1" />
+                                   Foreground="#D6DAE1"
+                                   Text="Providers" />
                         <TextBlock Margin="0,8,0,0"
-                                   Text="Enabled providers appear in the overlay and are included in refreshes."
+                                   FontSize="12"
                                    Foreground="#8B93A1"
-                                   FontSize="12" />
+                                   Text="Enabled providers appear in the overlay and are included in refreshes." />
                         <Border Margin="0,10,0,0"
                                 Background="#1A1D25"
                                 BorderBrush="#303641"
                                 BorderThickness="1"
                                 CornerRadius="8">
                             <ScrollViewer MaxHeight="380"
-                                          VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <Border Padding="12"
                                             BorderBrush="#2A303A"
@@ -87,28 +86,28 @@
                                             <StackPanel>
                                                 <CheckBox x:Name="AnthropicProviderEnabledCheckBox"
                                                           Content="Anthropic"
-                                                          Foreground="#D6DAE1"
                                                           FontSize="13"
-                                                          FontWeight="SemiBold" />
+                                                          FontWeight="SemiBold"
+                                                          Foreground="#D6DAE1" />
                                                 <TextBlock Margin="24,4,0,0"
-                                                           Text="Claude Code local OAuth and status-line quota data."
-                                                           Foreground="#8B93A1"
                                                            FontSize="12"
+                                                           Foreground="#8B93A1"
+                                                           Text="Claude Code local OAuth and status-line quota data."
                                                            TextWrapping="Wrap" />
                                                 <CheckBox x:Name="ClaudeStatusExporterCheckBox"
                                                           Margin="24,10,0,0"
                                                           Content="Install Claude Code status exporter automatically"
-                                                          Foreground="#D6DAE1"
-                                                          FontSize="12" />
+                                                          FontSize="12"
+                                                          Foreground="#D6DAE1" />
                                             </StackPanel>
                                             <Button Grid.Column="1"
                                                     Width="82"
                                                     Height="30"
                                                     Margin="12,0,0,0"
                                                     VerticalAlignment="Top"
+                                                    Click="ProviderSetupButtonOnClick"
                                                     Content="Setup"
-                                                    Tag="Anthropic"
-                                                    Click="ProviderSetupButtonOnClick" />
+                                                    Tag="Anthropic" />
                                         </Grid>
                                     </Border>
 
@@ -123,13 +122,13 @@
                                             <StackPanel>
                                                 <CheckBox x:Name="OpenAiProviderEnabledCheckBox"
                                                           Content="OpenAI"
-                                                          Foreground="#D6DAE1"
                                                           FontSize="13"
-                                                          FontWeight="SemiBold" />
+                                                          FontWeight="SemiBold"
+                                                          Foreground="#D6DAE1" />
                                                 <TextBlock Margin="24,4,0,0"
-                                                           Text="Codex local session logs and CLI quota refreshes."
-                                                           Foreground="#8B93A1"
                                                            FontSize="12"
+                                                           Foreground="#8B93A1"
+                                                           Text="Codex local session logs and CLI quota refreshes."
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
                                             <Button Grid.Column="1"
@@ -137,9 +136,9 @@
                                                     Height="30"
                                                     Margin="12,0,0,0"
                                                     VerticalAlignment="Top"
+                                                    Click="ProviderSetupButtonOnClick"
                                                     Content="Setup"
-                                                    Tag="OpenAI"
-                                                    Click="ProviderSetupButtonOnClick" />
+                                                    Tag="OpenAI" />
                                         </Grid>
                                     </Border>
 
@@ -154,13 +153,13 @@
                                             <StackPanel>
                                                 <CheckBox x:Name="GeminiProviderEnabledCheckBox"
                                                           Content="Gemini"
-                                                          Foreground="#D6DAE1"
                                                           FontSize="13"
-                                                          FontWeight="SemiBold" />
+                                                          FontWeight="SemiBold"
+                                                          Foreground="#D6DAE1" />
                                                 <TextBlock Margin="24,4,0,0"
-                                                           Text="Gemini CLI credentials, quota status export, and local session data."
-                                                           Foreground="#8B93A1"
                                                            FontSize="12"
+                                                           Foreground="#8B93A1"
+                                                           Text="Gemini CLI credentials, quota status export, and local session data."
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
                                             <Button Grid.Column="1"
@@ -168,9 +167,9 @@
                                                     Height="30"
                                                     Margin="12,0,0,0"
                                                     VerticalAlignment="Top"
+                                                    Click="ProviderSetupButtonOnClick"
                                                     Content="Setup"
-                                                    Tag="Gemini"
-                                                    Click="ProviderSetupButtonOnClick" />
+                                                    Tag="Gemini" />
                                         </Grid>
                                     </Border>
 
@@ -185,18 +184,18 @@
                                             <StackPanel>
                                                 <CheckBox x:Name="CursorProviderEnabledCheckBox"
                                                           Content="Cursor"
-                                                          Foreground="#D6DAE1"
                                                           FontSize="13"
-                                                          FontWeight="SemiBold" />
+                                                          FontWeight="SemiBold"
+                                                          Foreground="#D6DAE1" />
                                                 <TextBlock Margin="24,4,0,0"
-                                                           Text="Personal dashboard login or Teams Admin API spend data."
-                                                           Foreground="#8B93A1"
                                                            FontSize="12"
+                                                           Foreground="#8B93A1"
+                                                           Text="Personal dashboard login or Teams Admin API spend data."
                                                            TextWrapping="Wrap" />
                                                 <TextBlock x:Name="CursorModeSummaryTextBlock"
                                                            Margin="24,8,0,0"
-                                                           Foreground="#A8AFBA"
                                                            FontSize="12"
+                                                           Foreground="#A8AFBA"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
                                             <Button Grid.Column="1"
@@ -204,8 +203,8 @@
                                                     Height="30"
                                                     Margin="12,0,0,0"
                                                     VerticalAlignment="Top"
-                                                    Content="Setup"
-                                                    Click="CursorSetupButtonOnClick" />
+                                                    Click="CursorSetupButtonOnClick"
+                                                    Content="Setup" />
                                         </Grid>
                                     </Border>
 
@@ -220,18 +219,18 @@
                                             <StackPanel>
                                                 <CheckBox x:Name="DeepSeekProviderEnabledCheckBox"
                                                           Content="DeepSeek"
-                                                          Foreground="#D6DAE1"
                                                           FontSize="13"
-                                                          FontWeight="SemiBold" />
+                                                          FontWeight="SemiBold"
+                                                          Foreground="#D6DAE1" />
                                                 <TextBlock Margin="24,4,0,0"
-                                                           Text="DeepSeek API credit balance via API key."
-                                                           Foreground="#8B93A1"
                                                            FontSize="12"
+                                                           Foreground="#8B93A1"
+                                                           Text="DeepSeek API credit balance via API key."
                                                            TextWrapping="Wrap" />
                                                 <TextBlock x:Name="DeepSeekApiKeySummaryTextBlock"
                                                            Margin="24,8,0,0"
-                                                           Foreground="#A8AFBA"
                                                            FontSize="12"
+                                                           Foreground="#A8AFBA"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
                                             <Button Grid.Column="1"
@@ -239,8 +238,8 @@
                                                     Height="30"
                                                     Margin="12,0,0,0"
                                                     VerticalAlignment="Top"
-                                                    Content="Setup"
-                                                    Click="DeepSeekSetupButtonOnClick" />
+                                                    Click="DeepSeekSetupButtonOnClick"
+                                                    Content="Setup" />
                                         </Grid>
                                     </Border>
 
@@ -253,18 +252,18 @@
                                             <StackPanel>
                                                 <CheckBox x:Name="GitHubCopilotProviderEnabledCheckBox"
                                                           Content="GitHub Copilot"
-                                                          Foreground="#D6DAE1"
                                                           FontSize="13"
-                                                          FontWeight="SemiBold" />
+                                                          FontWeight="SemiBold"
+                                                          Foreground="#D6DAE1" />
                                                 <TextBlock Margin="24,4,0,0"
-                                                           Text="Premium request quota via internal Copilot API (undocumented)."
-                                                           Foreground="#8B93A1"
                                                            FontSize="12"
+                                                           Foreground="#8B93A1"
+                                                           Text="Premium request quota via internal Copilot API (undocumented)."
                                                            TextWrapping="Wrap" />
                                                 <TextBlock x:Name="GitHubCopilotApiKeySummaryTextBlock"
                                                            Margin="24,8,0,0"
-                                                           Foreground="#A8AFBA"
                                                            FontSize="12"
+                                                           Foreground="#A8AFBA"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
                                             <Button Grid.Column="1"
@@ -272,8 +271,8 @@
                                                     Height="30"
                                                     Margin="12,0,0,0"
                                                     VerticalAlignment="Top"
-                                                    Content="Setup"
-                                                    Click="GitHubCopilotSetupButtonOnClick" />
+                                                    Click="GitHubCopilotSetupButtonOnClick"
+                                                    Content="Setup" />
                                         </Grid>
                                     </Border>
                                 </StackPanel>
@@ -284,15 +283,26 @@
                     <StackPanel Margin="0,22,0,0">
                         <CheckBox x:Name="AutoRunAtLoginCheckBox"
                                   Content="Auto run at login"
-                                  Foreground="#D6DAE1"
-                                  FontSize="13" />
+                                  FontSize="13"
+                                  Foreground="#D6DAE1" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,16,0,0">
+                        <CheckBox x:Name="WaifuSquadCheckBox"
+                                  Content="Waifu Squad"
+                                  FontSize="13"
+                                  Foreground="#D6DAE1" />
+                        <TextBlock Margin="24,4,0,0"
+                                   FontSize="12"
+                                   Foreground="#8B93A1"
+                                   Text="Show background artwork on provider cards." />
                     </StackPanel>
 
                     <TextBlock x:Name="ValidationTextBlock"
                                Margin="0,16,0,0"
-                               TextWrapping="Wrap"
+                               FontSize="12"
                                Foreground="#FCA5A5"
-                               FontSize="12" />
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </ScrollViewer>
 
@@ -305,21 +315,21 @@
                 <Button Width="92"
                         Height="34"
                         HorizontalAlignment="Left"
-                        Content="About"
-                        Click="AboutButtonOnClick" />
+                        Click="AboutButtonOnClick"
+                        Content="About" />
 
                 <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right">
+                            HorizontalAlignment="Right"
+                            Orientation="Horizontal">
                     <Button Width="92"
                             Height="34"
                             Margin="0,0,8,0"
-                            Content="Cancel"
-                            Click="CancelButtonOnClick" />
+                            Click="CancelButtonOnClick"
+                            Content="Cancel" />
                     <Button Width="92"
                             Height="34"
-                            Content="Save"
-                            Click="SaveButtonOnClick" />
+                            Click="SaveButtonOnClick"
+                            Content="Save" />
                 </StackPanel>
             </Grid>
         </Grid>
