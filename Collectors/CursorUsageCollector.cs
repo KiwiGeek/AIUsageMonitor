@@ -176,23 +176,32 @@ public sealed class CursorUsageCollector : IUsageCollector
         var windows = new List<UsageWindow>();
 
         if (root.TryGetProperty("individualUsage", out var individualUsage) &&
-            individualUsage.TryGetProperty("plan", out var plan) &&
-            TryGetDouble(plan, "limit", out var limitCents) &&
-            limitCents > 0 &&
-            TryGetDouble(plan, "used", out var usedCents))
+            individualUsage.TryGetProperty("plan", out var plan))
         {
-            var remainingCents = TryGetDouble(plan, "remaining", out var parsedRemaining)
-                ? parsedRemaining
-                : Math.Max(limitCents - usedCents, 0);
-            var usedPercent = Math.Clamp(usedCents * 100d / limitCents, 0, 100);
-            windows.Add(ProviderUsageFactory.PercentWindow(
-                "Monthly included",
-                usedPercent,
-                billingCycleEnd,
-                $"${usedCents / 100d:0.00} used of ${limitCents / 100d:0.00}; ${remainingCents / 100d:0.00} left"));
+            // Prefer the direct percent fields Cursor exposes for Auto+Composer and API
+            if (TryGetDouble(plan, "autoPercentUsed", out var autoPercent))
+            {
+                windows.Add(ProviderUsageFactory.PercentWindow("Auto + Composer", Math.Clamp(autoPercent, 0, 100), billingCycleEnd));
+            }
+
+            if (TryGetDouble(plan, "apiPercentUsed", out var apiPercent))
+            {
+                windows.Add(ProviderUsageFactory.PercentWindow("API", Math.Clamp(apiPercent, 0, 100), billingCycleEnd));
+            }
+
+            // Fallback: compute from dollar values if percent fields are absent
+            if (windows.Count == 0 &&
+                TryGetDouble(plan, "limit", out var limitCents) &&
+                limitCents > 0 &&
+                TryGetDouble(plan, "used", out var usedCents))
+            {
+                var usedPercent = Math.Clamp(usedCents * 100d / limitCents, 0, 100);
+                windows.Add(ProviderUsageFactory.PercentWindow("Monthly included", usedPercent, billingCycleEnd));
+            }
         }
 
-        if (root.TryGetProperty("individualUsage", out individualUsage) &&
+        if (windows.Count == 0 &&
+            root.TryGetProperty("individualUsage", out individualUsage) &&
             individualUsage.TryGetProperty("onDemand", out var onDemand) &&
             onDemand.TryGetProperty("enabled", out var enabledElement) &&
             enabledElement.ValueKind == JsonValueKind.True &&
@@ -200,15 +209,8 @@ public sealed class CursorUsageCollector : IUsageCollector
             onDemandLimitCents > 0 &&
             TryGetDouble(onDemand, "used", out var onDemandUsedCents))
         {
-            var remainingCents = TryGetDouble(onDemand, "remaining", out var parsedRemaining)
-                ? parsedRemaining
-                : Math.Max(onDemandLimitCents - onDemandUsedCents, 0);
             var usedPercent = Math.Clamp(onDemandUsedCents * 100d / onDemandLimitCents, 0, 100);
-            windows.Add(ProviderUsageFactory.PercentWindow(
-                "On-demand",
-                usedPercent,
-                billingCycleEnd,
-                $"${onDemandUsedCents / 100d:0.00} used of ${onDemandLimitCents / 100d:0.00}; ${remainingCents / 100d:0.00} left"));
+            windows.Add(ProviderUsageFactory.PercentWindow("On-demand", usedPercent, billingCycleEnd));
         }
 
         if (windows.Count == 0)
