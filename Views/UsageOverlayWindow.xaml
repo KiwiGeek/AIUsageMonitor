@@ -132,9 +132,24 @@
         </Grid.ContextMenu>
 
         <Border x:Name="ChromeInset"
-                Padding="18,16,18,16"
                 Background="Transparent">
+            <Border.Style>
+                <Style TargetType="{x:Type Border}">
+                    <Setter Property="Padding" Value="18,16,18,16" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsHorizontalDock, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <Setter Property="Padding" Value="8,4,4,4" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -142,6 +157,16 @@
 
             <Grid Grid.Row="0"
                   Margin="6,0,6,8">
+                <Grid.Style>
+                    <Style TargetType="{x:Type Grid}">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHorizontalDock, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -170,9 +195,20 @@
                                Text="{Binding GeneratedAtText}" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="1"
+                <StackPanel x:Name="TopToolbarStack"
+                            Grid.Column="1"
                             VerticalAlignment="Top"
                             Orientation="Horizontal">
+                    <StackPanel.Style>
+                        <Style TargetType="{x:Type StackPanel}">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsHorizontalDock, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <ui:Button Margin="0"
                                Appearance="Secondary"
                                Click="SettingsButtonOnClick"
@@ -197,8 +233,17 @@
             </Grid>
 
             <Grid x:Name="ContentRoot"
-                  Grid.Row="1"
-                  Margin="6,0,6,0">
+                  Grid.Row="1">
+                <Grid.Style>
+                    <Style TargetType="{x:Type Grid}">
+                        <Setter Property="Margin" Value="6,0,6,0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHorizontalDock, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter Property="Margin" Value="6,0,0,0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -265,7 +310,7 @@
                             </Style>
                         </ScrollViewer.Style>
                         <ItemsControl x:Name="ProvidersList"
-                                      HorizontalAlignment="Left"
+                                      HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Providers}"
                                       SizeChanged="ProvidersListOnSizeChanged">
                             <ItemsControl.ItemsPanel>
@@ -536,6 +581,45 @@
                     </Grid>
                 </Grid>
             </Grid>
+            </Grid>
+
+            <StackPanel x:Name="SideToolbarStack"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Orientation="Vertical">
+                <StackPanel.Style>
+                    <Style TargetType="{x:Type StackPanel}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="Margin" Value="0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHorizontalDock, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Setter Property="Margin" Value="4,0,0,0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <ui:Button Margin="0"
+                           Appearance="Secondary"
+                           Click="SettingsButtonOnClick"
+                           Icon="{ui:SymbolIcon Symbol=Settings24}"
+                           ToolTip="Settings" />
+                <ui:Button Margin="0,4,0,0"
+                           Appearance="Secondary"
+                           Click="ReloadButtonOnClick"
+                           Icon="{ui:SymbolIcon Symbol=ArrowClockwise24}"
+                           ToolTip="Refresh now" />
+                <ui:Button Margin="0,4,0,0"
+                           Appearance="Secondary"
+                           Click="LogsButtonOnClick"
+                           Icon="{ui:SymbolIcon Symbol=DocumentText24}"
+                           ToolTip="Logs" />
+                <ui:Button Margin="0,4,0,0"
+                           Appearance="Secondary"
+                           Click="HideButtonOnClick"
+                           Icon="{ui:SymbolIcon Symbol=Dismiss24}"
+                           ToolTip="Hide" />
+            </StackPanel>
             </Grid>
         </Border>
     </Grid>

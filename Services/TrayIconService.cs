@@ -147,6 +147,7 @@ public sealed class TrayIconService : IDisposable
         {
             DataContext = _viewModel
         };
+        _overlayWindow.ApplySettings(_settings);
         _overlayWindow.ApplyStartupPlacement(_settings.OverlayWindowPlacement);
         _overlayWindow.ReloadRequested += (_, _) => _ = ManualRefreshAsync();
         _overlayWindow.SettingsRequested += (_, _) => ShowSettings();
@@ -217,6 +218,11 @@ public sealed class TrayIconService : IDisposable
 
     private void SaveOverlayWindowPlacement(UsageOverlayWindow window)
     {
+        if (!window.ShouldPersistPlacement)
+        {
+            return;
+        }
+
         try
         {
             _settings.OverlayWindowPlacement = window.GetCurrentPlacement();
@@ -278,6 +284,7 @@ public sealed class TrayIconService : IDisposable
 
         _settings = settingsWindow.Settings;
         _settingsService.Save(_settings);
+        _overlayWindow?.ApplySettings(_settings);
         ApplyAutoRunSetting();
         EnsureClaudeStatusExporterIfEnabled();
         ConfigureRefreshTimer();

@@ -275,6 +275,22 @@
                     </StackPanel>
 
                     <StackPanel Margin="0,22,0,0">
+                        <TextBlock FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Text="Overlay window" />
+                        <CheckBox x:Name="OverlaySnapToScreenCheckBox"
+                                  Margin="0,10,0,0"
+                                  Content="Enable snap to screen"
+                                  FontSize="13" />
+                        <TextBlock Margin="24,4,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                   Text="Drag the usage overlay to a monitor edge to dock it along that edge."
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,16,0,0">
                         <CheckBox x:Name="AutoRunAtLoginCheckBox"
                                   Content="Auto run at login"
                                   FontSize="13" />

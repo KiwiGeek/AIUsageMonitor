@@ -27,6 +27,7 @@ public partial class SettingsWindow : FluentAppWindow
         UpdateGitHubCopilotApiKeySummary();
         ClaudeStatusExporterCheckBox.IsChecked = Settings.ClaudeStatusExporterEnabled;
         AutoRunAtLoginCheckBox.IsChecked = Settings.AutoRunAtLoginEnabled || Services.AutoRunService.IsEnabled();
+        OverlaySnapToScreenCheckBox.IsChecked = Settings.OverlaySnapToScreenEnabled;
         WaifuSquadCheckBox.IsChecked = Settings.WaifuSquadEnabled;
         UpdateIntervalTextBox.SelectAll();
         UpdateIntervalTextBox.Focus();
@@ -138,6 +139,7 @@ public partial class SettingsWindow : FluentAppWindow
         Settings.SetProviderEnabled(KnownProviders.GitHubCopilot, GitHubCopilotProviderEnabledCheckBox.IsChecked == true);
         Settings.ClaudeStatusExporterEnabled = ClaudeStatusExporterCheckBox.IsChecked == true;
         Settings.AutoRunAtLoginEnabled = AutoRunAtLoginCheckBox.IsChecked == true;
+        Settings.OverlaySnapToScreenEnabled = OverlaySnapToScreenCheckBox.IsChecked == true;
         Settings.WaifuSquadEnabled = WaifuSquadCheckBox.IsChecked == true;
         MergeSavedCursorDashboardLogin();
         Settings.Normalize();

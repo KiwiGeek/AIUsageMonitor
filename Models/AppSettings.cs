@@ -35,6 +35,8 @@ public sealed class AppSettings
 
     public bool AutoRunAtLoginEnabled { get; set; }
 
+    public bool OverlaySnapToScreenEnabled { get; set; } = true;
+
     public OverlayWindowPlacement OverlayWindowPlacement { get; set; } = new();
 
     public AppSettings Clone()
@@ -54,6 +56,7 @@ public sealed class AppSettings
             WaifuSquadEnabled = WaifuSquadEnabled,
             ClaudeStatusExporterEnabled = ClaudeStatusExporterEnabled,
             AutoRunAtLoginEnabled = AutoRunAtLoginEnabled,
+            OverlaySnapToScreenEnabled = OverlaySnapToScreenEnabled,
             OverlayWindowPlacement = OverlayWindowPlacement?.Clone() ?? new OverlayWindowPlacement()
         };
     }
@@ -151,6 +154,18 @@ public sealed class OverlayWindowPlacement
 
     public double? Height { get; set; }
 
+    /// <summary>Last free-floating window width (DIP) before edge snap.</summary>
+    public double? FloatingWidth { get; set; }
+
+    /// <summary>Last free-floating window height (DIP) before edge snap.</summary>
+    public double? FloatingHeight { get; set; }
+
+    /// <summary>Last free-floating window left (DIP) before edge snap.</summary>
+    public double? FloatingLeft { get; set; }
+
+    /// <summary>Last free-floating window top (DIP) before edge snap.</summary>
+    public double? FloatingTop { get; set; }
+
     public OverlayEdgeSnap SnapEdge { get; set; } = OverlayEdgeSnap.None;
 
     public string? SnapMonitorDeviceName { get; set; }
@@ -163,6 +178,10 @@ public sealed class OverlayWindowPlacement
             Top = Top,
             Width = Width,
             Height = Height,
+            FloatingWidth = FloatingWidth,
+            FloatingHeight = FloatingHeight,
+            FloatingLeft = FloatingLeft,
+            FloatingTop = FloatingTop,
             SnapEdge = SnapEdge,
             SnapMonitorDeviceName = SnapMonitorDeviceName
         };
@@ -174,6 +193,10 @@ public sealed class OverlayWindowPlacement
         Top = NormalizeFiniteValue(Top);
         Width = NormalizePositiveValue(Width);
         Height = NormalizePositiveValue(Height);
+        FloatingWidth = NormalizePositiveValue(FloatingWidth);
+        FloatingHeight = NormalizePositiveValue(FloatingHeight);
+        FloatingLeft = NormalizeFiniteValue(FloatingLeft);
+        FloatingTop = NormalizeFiniteValue(FloatingTop);
         SnapMonitorDeviceName = string.IsNullOrWhiteSpace(SnapMonitorDeviceName)
             ? null
             : SnapMonitorDeviceName.Trim();

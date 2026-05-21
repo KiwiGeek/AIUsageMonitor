@@ -12,7 +12,7 @@ internal sealed class AppBarRegistration : IDisposable
 
     public bool IsRegistered => _registeredWindowHandle != IntPtr.Zero;
 
-    public bool TryRegister(Window window, OverlayEdgeSnap snapEdge, Rect screenPixels)
+    public bool TryRegister(Window window, OverlayEdgeSnap snapEdge, Rect intendedBoundsPixels)
     {
         var handle = new WindowInteropHelper(window).Handle;
         if (handle == IntPtr.Zero || snapEdge == OverlayEdgeSnap.None)
@@ -36,14 +36,19 @@ internal sealed class AppBarRegistration : IDisposable
             cbSize = Marshal.SizeOf<NativeMethods.AppBarData>(),
             hWnd = handle,
             uEdge = appBarEdge.Value,
-            rc = ToNativeRect(screenPixels)
+            rc = ToNativeRect(intendedBoundsPixels)
         };
 
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmNew, ref data);
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmQueryPos, ref data);
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmSetPos, ref data);
 
-        WindowBoundsHelper.SetBoundsFromScreenPixels(window, FromNativeRect(data.rc));
+        var shellBounds = FromNativeRect(data.rc);
+        var mergedBounds = MergeAppBarBounds(snapEdge, intendedBoundsPixels, shellBounds);
+        data.rc = ToNativeRect(mergedBounds);
+        _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmSetPos, ref data);
+
+        WindowBoundsHelper.SetBoundsFromScreenPixels(window, mergedBounds);
         _registeredWindowHandle = handle;
         return true;
     }
@@ -80,6 +85,34 @@ internal sealed class AppBarRegistration : IDisposable
         {
             _registeredWindowHandle = IntPtr.Zero;
         }
+    }
+
+    private static Rect MergeAppBarBounds(OverlayEdgeSnap snapEdge, Rect intended, Rect shellAdjusted)
+    {
+        return snapEdge switch
+        {
+            OverlayEdgeSnap.Left => new Rect(
+                shellAdjusted.Left,
+                shellAdjusted.Top,
+                intended.Width,
+                shellAdjusted.Height),
+            OverlayEdgeSnap.Right => new Rect(
+                shellAdjusted.Right - intended.Width,
+                shellAdjusted.Top,
+                intended.Width,
+                shellAdjusted.Height),
+            OverlayEdgeSnap.Top => new Rect(
+                shellAdjusted.Left,
+                shellAdjusted.Top,
+                shellAdjusted.Width,
+                intended.Height),
+            OverlayEdgeSnap.Bottom => new Rect(
+                shellAdjusted.Left,
+                shellAdjusted.Bottom - intended.Height,
+                shellAdjusted.Width,
+                intended.Height),
+            _ => intended
+        };
     }
 
     private static int? ToAppBarEdge(OverlayEdgeSnap snapEdge)

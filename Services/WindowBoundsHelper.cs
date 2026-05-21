@@ -56,6 +56,28 @@ internal static class WindowBoundsHelper
         return new Rect(area.Left, area.Top, area.Width, area.Height);
     }
 
+    public static Rect ConvertScreenPixelsToDip(Window window, Rect screenPixels)
+    {
+        var transform = GetTransformFromDevice(window);
+        var topLeft = transform.Transform(new System.Windows.Point(screenPixels.Left, screenPixels.Top));
+        var bottomRight = transform.Transform(new System.Windows.Point(screenPixels.Right, screenPixels.Bottom));
+        return new Rect(topLeft, bottomRight);
+    }
+
+    public static Rect ConvertDipToScreenPixels(Window window, Rect dipBounds)
+    {
+        var source = PresentationSource.FromVisual(window) as HwndSource;
+        var transform = source?.CompositionTarget.TransformToDevice ?? Matrix.Identity;
+        var topLeft = transform.Transform(new System.Windows.Point(dipBounds.Left, dipBounds.Top));
+        var bottomRight = transform.Transform(new System.Windows.Point(dipBounds.Right, dipBounds.Bottom));
+        return new Rect(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
+    }
+
+    public static Rect GetWorkingAreaDip(Window window, WinForms.Screen screen)
+    {
+        return ConvertScreenPixelsToDip(window, GetWorkingAreaPixels(screen));
+    }
+
     private static Matrix GetTransformFromDevice(Window window)
     {
         var source = PresentationSource.FromVisual(window) as HwndSource;
