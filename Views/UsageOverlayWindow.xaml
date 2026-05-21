@@ -265,18 +265,27 @@
                             </Style>
                         </ScrollViewer.Style>
                         <ItemsControl x:Name="ProvidersList"
-                                      Width="{Binding ProvidersListWidth, RelativeSource={RelativeSource AncestorType=Window}}"
                                       HorizontalAlignment="Left"
                                       ItemsSource="{Binding Providers}"
                                       SizeChanged="ProvidersListOnSizeChanged">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel IsItemsHost="True" ItemWidth="{Binding CardSlotWidth, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                    <WrapPanel IsItemsHost="True"
+                                               ItemWidth="{Binding CardSlotWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                                               ItemHeight="{Binding CardSlotHeight, RelativeSource={RelativeSource AncestorType=Window}}" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="ContentPresenter">
+                                    <Setter Property="Width" Value="{Binding CardSlotWidth, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                    <Setter Property="Height" Value="{Binding CardSlotHeight, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource ProviderCardStyle}">
+                                    <Border HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Style="{StaticResource ProviderCardStyle}">
                                         <Grid>
                                             <Image Margin="-12"
                                                    HorizontalAlignment="Right"
