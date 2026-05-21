@@ -37,6 +37,10 @@ public sealed class AppSettings
 
     public bool OverlaySnapToScreenEnabled { get; set; } = true;
 
+    public bool OverlaySnapReserveScreenSpaceEnabled { get; set; }
+
+    public bool OverlaySnapAutoHideWhenSnappedEnabled { get; set; }
+
     public OverlayWindowPlacement OverlayWindowPlacement { get; set; } = new();
 
     public AppSettings Clone()
@@ -57,6 +61,8 @@ public sealed class AppSettings
             ClaudeStatusExporterEnabled = ClaudeStatusExporterEnabled,
             AutoRunAtLoginEnabled = AutoRunAtLoginEnabled,
             OverlaySnapToScreenEnabled = OverlaySnapToScreenEnabled,
+            OverlaySnapReserveScreenSpaceEnabled = OverlaySnapReserveScreenSpaceEnabled,
+            OverlaySnapAutoHideWhenSnappedEnabled = OverlaySnapAutoHideWhenSnappedEnabled,
             OverlayWindowPlacement = OverlayWindowPlacement?.Clone() ?? new OverlayWindowPlacement()
         };
     }
@@ -89,6 +95,11 @@ public sealed class AppSettings
         if (CursorIncludedBudgetDollars <= 0 || double.IsNaN(CursorIncludedBudgetDollars) || double.IsInfinity(CursorIncludedBudgetDollars))
         {
             CursorIncludedBudgetDollars = DefaultCursorIncludedBudgetDollars;
+        }
+
+        if (OverlaySnapAutoHideWhenSnappedEnabled && OverlaySnapReserveScreenSpaceEnabled)
+        {
+            OverlaySnapReserveScreenSpaceEnabled = false;
         }
 
         OverlayWindowPlacement ??= new OverlayWindowPlacement();

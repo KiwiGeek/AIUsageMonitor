@@ -52,6 +52,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const double CompactHorizontalChromeInset = WindowHorizontalGutter + BodyHorizontalGutter;
     private const double CompactButtonsHorizontalInset = 180;
     private const double LayoutComparisonTolerance = 0.01;
+    private const double SnapAutoHideRevealZonePixels = 8;
+    private const double SnapAutoHideVisibleStripPixels = 4;
+    private const int SnapAutoHidePollIntervalMs = 100;
 
     public static readonly DependencyProperty DisplayModeProperty = DependencyProperty.Register(
         nameof(DisplayMode),
@@ -98,13 +101,16 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private double _floatingLeftDip;
     private double _floatingTopDip;
     private bool _snapToScreenEnabled = true;
+    private bool _snapReserveScreenSpace;
+    private bool _snapAutoHideWhenSnapped;
+    private bool _isSnapAutoHideExpanded = true;
+    private Rect _snappedFullBoundsPixels = Rect.Empty;
+    private readonly AppBarRegistration _appBarRegistration = new();
+    private DispatcherTimer? _snapAutoHideTimer;
     private ResizeMode _resizeModeBeforeDrag;
     private OverlayEdgeSnap _currentSnapEdge = OverlayEdgeSnap.None;
     private OverlayEdgeSnap _dragPreviewSnapEdge = OverlayEdgeSnap.None;
     private string? _snapMonitorDeviceName;
-
-    // AppBar registration disabled while tuning edge snap behavior.
-    // private readonly AppBarRegistration _appBarRegistration = new();
 
     public event EventHandler? ReloadRequested;
 
@@ -137,6 +143,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         var snapWasEnabled = _snapToScreenEnabled;
         _snapToScreenEnabled = settings.OverlaySnapToScreenEnabled;
+        _snapReserveScreenSpace = settings.OverlaySnapReserveScreenSpaceEnabled;
+        _snapAutoHideWhenSnapped = settings.OverlaySnapAutoHideWhenSnappedEnabled;
 
         if (!settings.OverlaySnapToScreenEnabled && _currentSnapEdge != OverlayEdgeSnap.None)
         {
@@ -145,6 +153,10 @@ public partial class UsageOverlayWindow : FluentAppWindow
         else if (!snapWasEnabled && settings.OverlaySnapToScreenEnabled)
         {
             // Snap re-enabled; keep current window placement until the user docks manually.
+        }
+        else if (_currentSnapEdge != OverlayEdgeSnap.None && !_isManualDragging)
+        {
+            RefreshSnappedScreenIntegration();
         }
     }
 
@@ -506,6 +518,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
+        if (_snapReserveScreenSpace && !_snapAutoHideWhenSnapped)
+        {
+            TryRefreshSnappedAppBar();
+        }
+
         var resizedAlongFreeAxis = _currentSnapEdge switch
         {
             OverlayEdgeSnap.Left or OverlayEdgeSnap.Right => e.WidthChanged,
@@ -513,11 +530,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
             _ => e.WidthChanged || e.HeightChanged
         };
 
-        // AppBar refresh disabled — snap position/size only.
-        // if (resizedAlongFreeAxis)
-        // {
-        //     TryRefreshSnappedAppBar();
-        // }
+        _ = resizedAlongFreeAxis;
     }
 
     private void WindowOnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -1401,6 +1414,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
         _isDragFloatingPreview = false;
         _dragPreviewSnapEdge = OverlayEdgeSnap.None;
         CancelQueuedLayoutUpdates();
+        if (_snapAutoHideWhenSnapped && _currentSnapEdge != OverlayEdgeSnap.None)
+        {
+            SetSnapAutoHideExpanded(true);
+        }
+
         _resizeModeBeforeDrag = ResizeMode;
         if (ResizeMode != ResizeMode.NoResize)
         {
@@ -1606,12 +1624,16 @@ public partial class UsageOverlayWindow : FluentAppWindow
                 ExpandSnappedHorizontalStripCardsToHost();
             }
 
-            // AppBar registration disabled while tuning edge snap behavior.
-            // var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            // if (handle != IntPtr.Zero)
-            // {
-            //     OverlayEdgeSnapService.ApplySnap(this, snapEdge, screen, boundsPixels, _appBarRegistration);
-            // }
+            if (WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var visibleBounds))
+            {
+                _snappedFullBoundsPixels = visibleBounds;
+            }
+            else
+            {
+                _snappedFullBoundsPixels = boundsPixels;
+            }
+
+            ApplySnapScreenIntegration(snapEdge, screen);
         }
         finally
         {
@@ -1619,34 +1641,229 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
     }
 
-    // AppBar registration disabled while tuning edge snap behavior.
-    // private void TryRefreshSnappedAppBar()
-    // {
-    //     if (_currentSnapEdge == OverlayEdgeSnap.None ||
-    //         _isManualDragging ||
-    //         _isApplyingPlacement)
-    //     {
-    //         return;
-    //     }
-    //
-    //     var screen = OverlayEdgeSnapService.FindScreenByDeviceName(_snapMonitorDeviceName)
-    //         ?? WindowBoundsHelper.GetScreenForWindow(this);
-    //     if (screen is null || !WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var currentBounds))
-    //     {
-    //         return;
-    //     }
-    //
-    //     var appBarBounds = OverlayEdgeSnapService.GetSnappedAppBarBoundsPixels(_currentSnapEdge, screen, currentBounds);
-    //     _isApplyingPlacement = true;
-    //     try
-    //     {
-    //         OverlayEdgeSnapService.ApplySnap(this, _currentSnapEdge, screen, appBarBounds, _appBarRegistration);
-    //     }
-    //     finally
-    //     {
-    //         _isApplyingPlacement = false;
-    //     }
-    // }
+    private void ApplySnapScreenIntegration(OverlayEdgeSnap snapEdge, WinForms.Screen screen)
+    {
+        if (snapEdge == OverlayEdgeSnap.None)
+        {
+            ClearSnapScreenIntegration();
+            return;
+        }
+
+        if (_snapAutoHideWhenSnapped)
+        {
+            _appBarRegistration.Unregister(this);
+            _isSnapAutoHideExpanded = true;
+            StartSnapAutoHide();
+            return;
+        }
+
+        StopSnapAutoHide();
+
+        if (_snapReserveScreenSpace)
+        {
+            var appBarBounds = OverlayEdgeSnapService.GetSnappedAppBarBoundsPixels(
+                snapEdge,
+                screen,
+                _snappedFullBoundsPixels);
+            OverlayEdgeSnapService.ApplySnap(this, snapEdge, screen, appBarBounds, _appBarRegistration);
+            if (WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var adjustedBounds))
+            {
+                _snappedFullBoundsPixels = adjustedBounds;
+            }
+        }
+        else
+        {
+            _appBarRegistration.Unregister(this);
+        }
+    }
+
+    private void ClearSnapScreenIntegration()
+    {
+        StopSnapAutoHide();
+        _appBarRegistration.Unregister(this);
+        _snappedFullBoundsPixels = Rect.Empty;
+        _isSnapAutoHideExpanded = true;
+    }
+
+    private void RefreshSnappedScreenIntegration()
+    {
+        if (_currentSnapEdge == OverlayEdgeSnap.None)
+        {
+            return;
+        }
+
+        var screen = OverlayEdgeSnapService.FindScreenByDeviceName(_snapMonitorDeviceName)
+            ?? WindowBoundsHelper.GetScreenForWindow(this);
+        if (screen is null)
+        {
+            return;
+        }
+
+        ApplySnapScreenIntegration(_currentSnapEdge, screen);
+    }
+
+    private void TryRefreshSnappedAppBar()
+    {
+        if (_currentSnapEdge == OverlayEdgeSnap.None ||
+            _isManualDragging ||
+            _isApplyingPlacement ||
+            !_snapReserveScreenSpace ||
+            _snapAutoHideWhenSnapped)
+        {
+            return;
+        }
+
+        var screen = OverlayEdgeSnapService.FindScreenByDeviceName(_snapMonitorDeviceName)
+            ?? WindowBoundsHelper.GetScreenForWindow(this);
+        if (screen is null || !WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var currentBounds))
+        {
+            return;
+        }
+
+        var appBarBounds = OverlayEdgeSnapService.GetSnappedAppBarBoundsPixels(_currentSnapEdge, screen, currentBounds);
+        _isApplyingPlacement = true;
+        try
+        {
+            OverlayEdgeSnapService.ApplySnap(this, _currentSnapEdge, screen, appBarBounds, _appBarRegistration);
+            if (WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var adjustedBounds))
+            {
+                _snappedFullBoundsPixels = adjustedBounds;
+            }
+        }
+        finally
+        {
+            _isApplyingPlacement = false;
+        }
+    }
+
+    private void StartSnapAutoHide()
+    {
+        if (!_snapAutoHideWhenSnapped || _currentSnapEdge == OverlayEdgeSnap.None)
+        {
+            return;
+        }
+
+        _snapAutoHideTimer ??= new DispatcherTimer(
+            TimeSpan.FromMilliseconds(SnapAutoHidePollIntervalMs),
+            DispatcherPriority.Background,
+            SnapAutoHideTimerOnTick,
+            Dispatcher);
+        _snapAutoHideTimer.Start();
+        EvaluateSnapAutoHide();
+    }
+
+    private void StopSnapAutoHide()
+    {
+        if (_snapAutoHideTimer is null)
+        {
+            return;
+        }
+
+        _snapAutoHideTimer.Stop();
+        _snapAutoHideTimer = null;
+    }
+
+    private void SnapAutoHideTimerOnTick(object? sender, EventArgs e)
+    {
+        EvaluateSnapAutoHide();
+    }
+
+    private void EvaluateSnapAutoHide()
+    {
+        if (!_snapAutoHideWhenSnapped ||
+            _currentSnapEdge == OverlayEdgeSnap.None ||
+            _snappedFullBoundsPixels.IsEmpty)
+        {
+            return;
+        }
+
+        if (ShouldKeepSnapAutoHideExpanded())
+        {
+            SetSnapAutoHideExpanded(true);
+            return;
+        }
+
+        var screen = OverlayEdgeSnapService.FindScreenByDeviceName(_snapMonitorDeviceName)
+            ?? WindowBoundsHelper.GetScreenForWindow(this);
+        if (screen is null)
+        {
+            return;
+        }
+
+        var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
+        var mouse = WinForms.Control.MousePosition;
+        var mousePoint = new System.Drawing.Point(mouse.X, mouse.Y);
+        var shouldExpand = IsMouseInSnapRevealZone(mousePoint, workArea, _currentSnapEdge) ||
+                           IsMouseOverWindowBounds();
+
+        SetSnapAutoHideExpanded(shouldExpand);
+    }
+
+    private bool ShouldKeepSnapAutoHideExpanded() =>
+        _isManualDragging || _isApplyingPlacement || !IsVisible;
+
+    private static bool IsMouseInSnapRevealZone(
+        System.Drawing.Point mouse,
+        Rect workAreaPixels,
+        OverlayEdgeSnap snapEdge)
+    {
+        var zone = SnapAutoHideRevealZonePixels;
+        return snapEdge switch
+        {
+            OverlayEdgeSnap.Left => mouse.X >= workAreaPixels.Left && mouse.X <= workAreaPixels.Left + zone,
+            OverlayEdgeSnap.Right => mouse.X <= workAreaPixels.Right && mouse.X >= workAreaPixels.Right - zone,
+            OverlayEdgeSnap.Top => mouse.Y >= workAreaPixels.Top && mouse.Y <= workAreaPixels.Top + zone,
+            OverlayEdgeSnap.Bottom => mouse.Y <= workAreaPixels.Bottom && mouse.Y >= workAreaPixels.Bottom - zone,
+            _ => false
+        };
+    }
+
+    private bool IsMouseOverWindowBounds()
+    {
+        if (!WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var bounds))
+        {
+            return false;
+        }
+
+        var mouse = WinForms.Control.MousePosition;
+        return bounds.Contains(mouse.X, mouse.Y);
+    }
+
+    private void SetSnapAutoHideExpanded(bool expanded)
+    {
+        if (_isSnapAutoHideExpanded == expanded || _snappedFullBoundsPixels.IsEmpty)
+        {
+            return;
+        }
+
+        _isSnapAutoHideExpanded = expanded;
+        var targetBounds = expanded
+            ? _snappedFullBoundsPixels
+            : GetSnapAutoHideCollapsedBoundsPixels(_snappedFullBoundsPixels, _currentSnapEdge);
+
+        _isApplyingPlacement = true;
+        try
+        {
+            ApplyBoundsPixels(targetBounds);
+        }
+        finally
+        {
+            _isApplyingPlacement = false;
+        }
+    }
+
+    private static Rect GetSnapAutoHideCollapsedBoundsPixels(Rect fullBounds, OverlayEdgeSnap snapEdge)
+    {
+        var visible = SnapAutoHideVisibleStripPixels;
+        return snapEdge switch
+        {
+            OverlayEdgeSnap.Left => new Rect(fullBounds.Left, fullBounds.Top, visible, fullBounds.Height),
+            OverlayEdgeSnap.Right => new Rect(fullBounds.Right - visible, fullBounds.Top, visible, fullBounds.Height),
+            OverlayEdgeSnap.Top => new Rect(fullBounds.Left, fullBounds.Top, fullBounds.Width, visible),
+            OverlayEdgeSnap.Bottom => new Rect(fullBounds.Left, fullBounds.Bottom - visible, fullBounds.Width, visible),
+            _ => fullBounds
+        };
+    }
 
     private void ApplyBoundsPixels(Rect boundsPixels)
     {
@@ -1667,7 +1884,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         _snapMonitorDeviceName = null;
         SyncHorizontalDockChromeState();
 
-        // OverlayEdgeSnapService.ClearSnap(this, _appBarRegistration);
+        ClearSnapScreenIntegration();
     }
 
     public void ReleaseEdgeSnapToFloating()
@@ -1783,7 +2000,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         if (!IsVisible)
         {
-            // _appBarRegistration.Unregister(this);
+            StopSnapAutoHide();
+            _appBarRegistration.Unregister(this);
             return;
         }
 
@@ -1818,7 +2036,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     protected override void OnClosed(EventArgs e)
     {
-        // _appBarRegistration.Dispose();
+        StopSnapAutoHide();
+        _appBarRegistration.Dispose();
 
         if (_providersCollection is not null)
         {

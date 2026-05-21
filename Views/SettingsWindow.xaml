@@ -288,6 +288,28 @@
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                    Text="Drag the usage overlay to a monitor edge to dock it along that edge."
                                    TextWrapping="Wrap" />
+                        <CheckBox x:Name="OverlaySnapReserveScreenSpaceCheckBox"
+                                  Margin="0,10,0,0"
+                                  Content="Reserve screen space when snapped"
+                                  FontSize="13"
+                                  Checked="OverlaySnapDockOptionOnChecked"
+                                  Unchecked="OverlaySnapDockOptionOnChecked" />
+                        <TextBlock Margin="24,4,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                   Text="Registers as a Windows app bar so other windows avoid the docked strip."
+                                   TextWrapping="Wrap" />
+                        <CheckBox x:Name="OverlaySnapAutoHideWhenSnappedCheckBox"
+                                  Margin="0,8,0,0"
+                                  Content="Auto-hide when snapped"
+                                  FontSize="13"
+                                  Checked="OverlaySnapDockOptionOnChecked"
+                                  Unchecked="OverlaySnapDockOptionOnChecked" />
+                        <TextBlock Margin="24,4,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                   Text="Collapses to the screen edge until the pointer moves nearby. Cannot be used with reserve screen space."
+                                   TextWrapping="Wrap" />
                     </StackPanel>
 
                     <StackPanel Margin="0,16,0,0">

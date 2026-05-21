@@ -28,6 +28,11 @@ public partial class SettingsWindow : FluentAppWindow
         ClaudeStatusExporterCheckBox.IsChecked = Settings.ClaudeStatusExporterEnabled;
         AutoRunAtLoginCheckBox.IsChecked = Settings.AutoRunAtLoginEnabled || Services.AutoRunService.IsEnabled();
         OverlaySnapToScreenCheckBox.IsChecked = Settings.OverlaySnapToScreenEnabled;
+        OverlaySnapToScreenCheckBox.Checked += (_, _) => UpdateOverlaySnapDockOptionsEnabled();
+        OverlaySnapToScreenCheckBox.Unchecked += (_, _) => UpdateOverlaySnapDockOptionsEnabled();
+        OverlaySnapReserveScreenSpaceCheckBox.IsChecked = Settings.OverlaySnapReserveScreenSpaceEnabled;
+        OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked = Settings.OverlaySnapAutoHideWhenSnappedEnabled;
+        UpdateOverlaySnapDockOptionsEnabled();
         WaifuSquadCheckBox.IsChecked = Settings.WaifuSquadEnabled;
         UpdateIntervalTextBox.SelectAll();
         UpdateIntervalTextBox.Focus();
@@ -140,6 +145,8 @@ public partial class SettingsWindow : FluentAppWindow
         Settings.ClaudeStatusExporterEnabled = ClaudeStatusExporterCheckBox.IsChecked == true;
         Settings.AutoRunAtLoginEnabled = AutoRunAtLoginCheckBox.IsChecked == true;
         Settings.OverlaySnapToScreenEnabled = OverlaySnapToScreenCheckBox.IsChecked == true;
+        Settings.OverlaySnapReserveScreenSpaceEnabled = OverlaySnapReserveScreenSpaceCheckBox.IsChecked == true;
+        Settings.OverlaySnapAutoHideWhenSnappedEnabled = OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked == true;
         Settings.WaifuSquadEnabled = WaifuSquadCheckBox.IsChecked == true;
         MergeSavedCursorDashboardLogin();
         Settings.Normalize();
@@ -201,6 +208,27 @@ public partial class SettingsWindow : FluentAppWindow
         CursorModeSummaryTextBlock.Text = string.Equals(Settings.CursorUsageMode, AppSettings.CursorUsageModeTeamsApiKey, StringComparison.Ordinal)
             ? "Mode: Teams Admin API key"
             : "Mode: Personal subscription dashboard login";
+    }
+
+    private void OverlaySnapDockOptionOnChecked(object sender, RoutedEventArgs e)
+    {
+        if (sender == OverlaySnapReserveScreenSpaceCheckBox &&
+            OverlaySnapReserveScreenSpaceCheckBox.IsChecked == true)
+        {
+            OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked = false;
+        }
+        else if (sender == OverlaySnapAutoHideWhenSnappedCheckBox &&
+                 OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked == true)
+        {
+            OverlaySnapReserveScreenSpaceCheckBox.IsChecked = false;
+        }
+    }
+
+    private void UpdateOverlaySnapDockOptionsEnabled()
+    {
+        var snapEnabled = OverlaySnapToScreenCheckBox.IsChecked == true;
+        OverlaySnapReserveScreenSpaceCheckBox.IsEnabled = snapEnabled;
+        OverlaySnapAutoHideWhenSnappedCheckBox.IsEnabled = snapEnabled;
     }
 
     private void MergeSavedCursorDashboardLogin()
