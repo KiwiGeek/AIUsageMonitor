@@ -74,6 +74,10 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private INotifyCollectionChanged? _providersCollection;
     private bool _responsiveLayoutQueued;
     private bool _isWindowDragging;
+    private bool _isManualDragging;
+    private bool _isApplyingPlacement;
+    private System.Windows.Point _dragPointerToWindowOriginOffsetPixels;
+    private ResizeMode _resizeModeBeforeDrag;
     private OverlayEdgeSnap _currentSnapEdge = OverlayEdgeSnap.None;
     private string? _snapMonitorDeviceName;
     private readonly AppBarRegistration _appBarRegistration = new();
@@ -94,7 +98,15 @@ public partial class UsageOverlayWindow : FluentAppWindow
         SizeChanged += WindowOnSizeChanged;
         DataContextChanged += WindowOnDataContextChanged;
         PreviewMouseLeftButtonUp += WindowOnPreviewMouseLeftButtonUp;
+        PreviewMouseMove += WindowOnPreviewMouseMove;
         IsVisibleChanged += WindowOnIsVisibleChanged;
+
+        WindowsSnapSuppression.Attach(this, AllowSystemWindowPositionChanges);
+    }
+
+    private bool AllowSystemWindowPositionChanges()
+    {
+        return _isManualDragging || _isApplyingPlacement;
     }
 
     public void ApplyStartupPlacement(OverlayWindowPlacement? placement)
@@ -105,6 +117,19 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
+        _isApplyingPlacement = true;
+        try
+        {
+            ApplyStartupPlacementCore(placement, virtualScreenBounds);
+        }
+        finally
+        {
+            _isApplyingPlacement = false;
+        }
+    }
+
+    private void ApplyStartupPlacementCore(OverlayWindowPlacement? placement, Rect virtualScreenBounds)
+    {
         _currentSnapEdge = placement?.SnapEdge ?? OverlayEdgeSnap.None;
         if (_currentSnapEdge != OverlayEdgeSnap.None)
         {
@@ -682,8 +707,56 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
+        if (!WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var windowBounds))
+        {
+            return;
+        }
+
         _isWindowDragging = true;
-        BeginDragMove(e);
+        _isManualDragging = true;
+        _resizeModeBeforeDrag = ResizeMode;
+        if (ResizeMode != ResizeMode.NoResize)
+        {
+            ResizeMode = ResizeMode.NoResize;
+            UpdateLayout();
+        }
+
+        var mouseScreen = PointToScreen(e.GetPosition(this));
+        _dragPointerToWindowOriginOffsetPixels = new System.Windows.Point(
+            mouseScreen.X - windowBounds.Left,
+            mouseScreen.Y - windowBounds.Top);
+        CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void WindowOnPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isManualDragging || Mouse.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        if (!WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var windowBounds))
+        {
+            return;
+        }
+
+        var mouseScreen = PointToScreen(e.GetPosition(this));
+        var nextBounds = new Rect(
+            mouseScreen.X - _dragPointerToWindowOriginOffsetPixels.X,
+            mouseScreen.Y - _dragPointerToWindowOriginOffsetPixels.Y,
+            windowBounds.Width,
+            windowBounds.Height);
+
+        _isApplyingPlacement = true;
+        try
+        {
+            WindowBoundsHelper.SetBoundsFromScreenPixels(this, nextBounds);
+        }
+        finally
+        {
+            _isApplyingPlacement = false;
+        }
     }
 
     private void WindowOnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -694,6 +767,21 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
 
         _isWindowDragging = false;
+        if (_isManualDragging)
+        {
+            _isManualDragging = false;
+            if (IsMouseCaptured)
+            {
+                ReleaseMouseCapture();
+            }
+
+            if (ResizeMode != _resizeModeBeforeDrag)
+            {
+                ResizeMode = _resizeModeBeforeDrag;
+                UpdateLayout();
+            }
+        }
+
         TryApplyEdgeSnapFromCurrentPosition();
     }
 
@@ -717,14 +805,22 @@ public partial class UsageOverlayWindow : FluentAppWindow
         _currentSnapEdge = snapEdge;
         _snapMonitorDeviceName = screen.DeviceName;
         var bounds = OverlayEdgeSnapService.GetSnappedBoundsPixels(screen);
-        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        if (handle == IntPtr.Zero)
+        _isApplyingPlacement = true;
+        try
         {
-            WindowBoundsHelper.SetBoundsFromScreenPixels(this, bounds);
+            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            if (handle == IntPtr.Zero)
+            {
+                WindowBoundsHelper.SetBoundsFromScreenPixels(this, bounds);
+            }
+            else
+            {
+                OverlayEdgeSnapService.ApplySnap(this, snapEdge, screen, _appBarRegistration);
+            }
         }
-        else
+        finally
         {
-            OverlayEdgeSnapService.ApplySnap(this, snapEdge, screen, _appBarRegistration);
+            _isApplyingPlacement = false;
         }
 
         QueueResponsiveLayoutUpdate();
@@ -742,19 +838,6 @@ public partial class UsageOverlayWindow : FluentAppWindow
         if (e.Key == Key.Escape)
         {
             Hide();
-        }
-    }
-
-    private void BeginDragMove(MouseButtonEventArgs e)
-    {
-        try
-        {
-            DragMove();
-            e.Handled = true;
-        }
-        catch (InvalidOperationException)
-        {
-            // DragMove can throw if mouse capture changes during the drag.
         }
     }
 
