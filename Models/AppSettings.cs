@@ -151,6 +151,10 @@ public sealed class OverlayWindowPlacement
 
     public double? Height { get; set; }
 
+    public OverlayEdgeSnap SnapEdge { get; set; } = OverlayEdgeSnap.None;
+
+    public string? SnapMonitorDeviceName { get; set; }
+
     public OverlayWindowPlacement Clone()
     {
         return new OverlayWindowPlacement
@@ -158,7 +162,9 @@ public sealed class OverlayWindowPlacement
             Left = Left,
             Top = Top,
             Width = Width,
-            Height = Height
+            Height = Height,
+            SnapEdge = SnapEdge,
+            SnapMonitorDeviceName = SnapMonitorDeviceName
         };
     }
 
@@ -168,6 +174,14 @@ public sealed class OverlayWindowPlacement
         Top = NormalizeFiniteValue(Top);
         Width = NormalizePositiveValue(Width);
         Height = NormalizePositiveValue(Height);
+        SnapMonitorDeviceName = string.IsNullOrWhiteSpace(SnapMonitorDeviceName)
+            ? null
+            : SnapMonitorDeviceName.Trim();
+
+        if (SnapEdge == OverlayEdgeSnap.None)
+        {
+            SnapMonitorDeviceName = null;
+        }
     }
 
     private static double? NormalizePositiveValue(double? value)

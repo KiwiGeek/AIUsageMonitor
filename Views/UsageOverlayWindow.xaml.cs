@@ -13,7 +13,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using AIUsageMonitor.Models;
+using AIUsageMonitor.Services;
 using AIUsageMonitor.ViewModels;
+using WinForms = System.Windows.Forms;
 
 namespace AIUsageMonitor.Views;
 
@@ -71,6 +73,10 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private INotifyCollectionChanged? _providersCollection;
     private bool _responsiveLayoutQueued;
+    private bool _isWindowDragging;
+    private OverlayEdgeSnap _currentSnapEdge = OverlayEdgeSnap.None;
+    private string? _snapMonitorDeviceName;
+    private readonly AppBarRegistration _appBarRegistration = new();
 
     public event EventHandler? ReloadRequested;
 
@@ -84,8 +90,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         InitializeComponent();
         Loaded += WindowOnLoaded;
+        SourceInitialized += WindowOnSourceInitialized;
         SizeChanged += WindowOnSizeChanged;
         DataContextChanged += WindowOnDataContextChanged;
+        PreviewMouseLeftButtonUp += WindowOnPreviewMouseLeftButtonUp;
+        IsVisibleChanged += WindowOnIsVisibleChanged;
     }
 
     public void ApplyStartupPlacement(OverlayWindowPlacement? placement)
@@ -94,6 +103,21 @@ public partial class UsageOverlayWindow : FluentAppWindow
         if (virtualScreenBounds.IsEmpty)
         {
             return;
+        }
+
+        _currentSnapEdge = placement?.SnapEdge ?? OverlayEdgeSnap.None;
+        if (_currentSnapEdge != OverlayEdgeSnap.None)
+        {
+            var screen = OverlayEdgeSnapService.FindScreenByDeviceName(placement?.SnapMonitorDeviceName)
+                ?? WindowBoundsHelper.GetScreenForWindow(this);
+            if (screen is not null)
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                ApplyEdgeSnap(_currentSnapEdge, screen);
+                return;
+            }
+
+            _currentSnapEdge = OverlayEdgeSnap.None;
         }
 
         var width = CoerceDimension(placement?.Width, Width, MinWidth, virtualScreenBounds.Width);
@@ -116,12 +140,15 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     public OverlayWindowPlacement GetCurrentPlacement()
     {
+        var screen = WindowBoundsHelper.GetScreenForWindow(this);
         return new OverlayWindowPlacement
         {
             Left = HasFiniteValue(Left) ? Left : null,
             Top = HasFiniteValue(Top) ? Top : null,
             Width = GetCurrentDimension(ActualWidth, Width),
-            Height = GetCurrentDimension(ActualHeight, Height)
+            Height = GetCurrentDimension(ActualHeight, Height),
+            SnapEdge = _currentSnapEdge,
+            SnapMonitorDeviceName = _currentSnapEdge == OverlayEdgeSnap.None ? null : _snapMonitorDeviceName ?? screen?.DeviceName
         };
     }
 
@@ -211,6 +238,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private void WindowOnLoaded(object sender, RoutedEventArgs e)
     {
         QueueResponsiveLayoutUpdate();
+    }
+
+    private void WindowOnSourceInitialized(object? sender, EventArgs e)
+    {
+        if (_currentSnapEdge != OverlayEdgeSnap.None)
+        {
+            var screen = WindowBoundsHelper.GetScreenForWindow(this);
+            if (screen is not null)
+            {
+                ApplyEdgeSnap(_currentSnapEdge, screen);
+            }
+        }
     }
 
     private void WindowOnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -643,7 +682,59 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
+        _isWindowDragging = true;
         BeginDragMove(e);
+    }
+
+    private void WindowOnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isWindowDragging)
+        {
+            return;
+        }
+
+        _isWindowDragging = false;
+        TryApplyEdgeSnapFromCurrentPosition();
+    }
+
+    private void TryApplyEdgeSnapFromCurrentPosition()
+    {
+        if (OverlayEdgeSnapService.TryGetSnapEdge(this, out var snapEdge, out var screen) &&
+            screen is not null)
+        {
+            ApplyEdgeSnap(snapEdge, screen);
+            return;
+        }
+
+        if (_currentSnapEdge != OverlayEdgeSnap.None)
+        {
+            ClearEdgeSnap();
+        }
+    }
+
+    private void ApplyEdgeSnap(OverlayEdgeSnap snapEdge, WinForms.Screen screen)
+    {
+        _currentSnapEdge = snapEdge;
+        _snapMonitorDeviceName = screen.DeviceName;
+        var bounds = OverlayEdgeSnapService.GetSnappedBoundsPixels(screen);
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            WindowBoundsHelper.SetBoundsFromScreenPixels(this, bounds);
+        }
+        else
+        {
+            OverlayEdgeSnapService.ApplySnap(this, snapEdge, screen, _appBarRegistration);
+        }
+
+        QueueResponsiveLayoutUpdate();
+    }
+
+    private void ClearEdgeSnap()
+    {
+        _currentSnapEdge = OverlayEdgeSnap.None;
+        _snapMonitorDeviceName = null;
+        OverlayEdgeSnapService.ClearSnap(this, _appBarRegistration);
     }
 
     private void WindowOnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -687,6 +778,27 @@ public partial class UsageOverlayWindow : FluentAppWindow
         return false;
     }
 
+    private void WindowOnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (!IsVisible)
+        {
+            _appBarRegistration.Unregister(this);
+            return;
+        }
+
+        if (_currentSnapEdge == OverlayEdgeSnap.None)
+        {
+            return;
+        }
+
+        var screen = OverlayEdgeSnapService.FindScreenByDeviceName(_snapMonitorDeviceName)
+            ?? WindowBoundsHelper.GetScreenForWindow(this);
+        if (screen is not null)
+        {
+            ApplyEdgeSnap(_currentSnapEdge, screen);
+        }
+    }
+
     protected override void OnStateChanged(EventArgs e)
     {
         if (WindowState == WindowState.Maximized)
@@ -705,6 +817,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     protected override void OnClosed(EventArgs e)
     {
+        _appBarRegistration.Dispose();
+
         if (_providersCollection is not null)
         {
             _providersCollection.CollectionChanged -= ProvidersOnCollectionChanged;
