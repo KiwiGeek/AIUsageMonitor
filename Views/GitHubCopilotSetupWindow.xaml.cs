@@ -5,7 +5,7 @@ using AIUsageMonitor.Models;
 
 namespace AIUsageMonitor.Views;
 
-public partial class GitHubCopilotSetupWindow : Window
+public partial class GitHubCopilotSetupWindow : FluentAppWindow
 {
     public GitHubCopilotSetupWindow(AppSettings settings)
     {

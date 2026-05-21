@@ -4,7 +4,7 @@ using AIUsageMonitor.Services;
 
 namespace AIUsageMonitor.Views;
 
-public partial class CursorSetupWindow : Window
+public partial class CursorSetupWindow : FluentAppWindow
 {
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;

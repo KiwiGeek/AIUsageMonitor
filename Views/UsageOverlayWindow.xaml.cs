@@ -1,6 +1,13 @@
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using WpfButtonBase = System.Windows.Controls.Primitives.ButtonBase;
+using WpfComboBox = System.Windows.Controls.ComboBox;
+using WpfScrollBar = System.Windows.Controls.Primitives.ScrollBar;
+using WpfSlider = System.Windows.Controls.Slider;
+using WpfTextBoxBase = System.Windows.Controls.Primitives.TextBoxBase;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -9,7 +16,7 @@ using AIUsageMonitor.ViewModels;
 
 namespace AIUsageMonitor.Views;
 
-public partial class UsageOverlayWindow : Window
+public partial class UsageOverlayWindow : FluentAppWindow
 {
     private const string FullDisplayMode = "Full";
     private const string CompactDisplayMode = "Compact";
@@ -23,14 +30,17 @@ public partial class UsageOverlayWindow : Window
     private const double FullEmptyMinimumHeight = 240;
     private const double CompactEmptyMinimumHeight = 96;
     private const double MiniEmptyMinimumHeight = 58;
-    private const double FullMinimumVerticalInset = 210;
+    private const double FullMinimumVerticalInset = 175;
     private const double FullMinimumRowHeight = 265;
     private const double CompactMinimumVerticalInset = 36;
     private const double CompactMinimumRowHeight = 100;
     private const double MiniMinimumVerticalInset = 22;
     private const double MiniMinimumRowHeight = 36;
-    private const double MiniHorizontalChromeInset = 54;
-    private const double CompactHorizontalChromeInset = 28;
+    private const double WindowHorizontalGutter = 36;
+    private const double BodyHorizontalGutter = 12;
+    private const double CardHostHorizontalFudge = 10;
+    private const double MiniHorizontalChromeInset = WindowHorizontalGutter + BodyHorizontalGutter;
+    private const double CompactHorizontalChromeInset = WindowHorizontalGutter + BodyHorizontalGutter;
     private const double CompactButtonsHorizontalInset = 180;
     private const double HeightTrimTolerance = 1;
 
@@ -58,10 +68,6 @@ public partial class UsageOverlayWindow : Window
         typeof(UsageOverlayWindow),
         new PropertyMetadata(816d));
 
-    private double _resizeStartHeight;
-    private double _resizeStartWidth;
-    private System.Windows.Point _resizeStartScreenPoint;
-    private Thumb? _activeResizeThumb;
     private INotifyCollectionChanged? _providersCollection;
     private bool _responsiveLayoutQueued;
     private bool _isAutoTrimmingHeight;
@@ -192,64 +198,6 @@ public partial class UsageOverlayWindow : Window
     private void LogsButtonOnClick(object sender, RoutedEventArgs e)
     {
         LogsRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void HeaderOnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ButtonState != MouseButtonState.Pressed || IsInteractiveElement(e.OriginalSource as DependencyObject))
-        {
-            return;
-        }
-
-        BeginDragMove(e);
-    }
-
-    private void WindowOnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        var source = e.OriginalSource as DependencyObject;
-        if (e.ButtonState != MouseButtonState.Pressed || IsInteractiveElement(source))
-        {
-            return;
-        }
-
-        BeginDragMove(e);
-    }
-
-    private void ResizeThumbOnDragStarted(object sender, DragStartedEventArgs e)
-    {
-        if (sender is Thumb thumb)
-        {
-            _activeResizeThumb = thumb;
-            _activeResizeThumb.Visibility = Visibility.Visible;
-        }
-
-        _resizeStartWidth = ActualWidth;
-        _resizeStartHeight = ActualHeight;
-        _resizeStartScreenPoint = GetMouseScreenPosition();
-    }
-
-    private void ResizeThumbOnDragDelta(object sender, DragDeltaEventArgs e)
-    {
-        var delta = ScreenPixelsToDips(GetMouseScreenPosition() - _resizeStartScreenPoint);
-        var requestedWidth = Math.Max(MinWidth, _resizeStartWidth + delta.X);
-        var requestedHeight = _resizeStartHeight + delta.Y;
-        var layout = CalculateResponsiveLayout(requestedWidth, requestedHeight, ProvidersList.Items.Count);
-        var minimumHeight = GetMinimumWindowHeight(layout.DisplayMode, layout.Rows);
-
-        MinHeight = minimumHeight;
-        Width = requestedWidth;
-        Height = minimumHeight;
-    }
-
-    private void ResizeThumbOnDragCompleted(object sender, DragCompletedEventArgs e)
-    {
-        if (_activeResizeThumb is null)
-        {
-            return;
-        }
-
-        _activeResizeThumb.ClearValue(VisibilityProperty);
-        _activeResizeThumb = null;
     }
 
     private void ProvidersListOnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -461,7 +409,7 @@ public partial class UsageOverlayWindow : Window
         {
             MiniDisplayMode => MiniHorizontalChromeInset,
             CompactDisplayMode => showCompactButtons ? CompactButtonsHorizontalInset : CompactHorizontalChromeInset,
-            _ => 84
+            _ => WindowHorizontalGutter + BodyHorizontalGutter + CardHostHorizontalFudge
         };
     }
 
@@ -550,15 +498,22 @@ public partial class UsageOverlayWindow : Window
         double CardSlotWidth,
         double ProvidersListWidth);
 
-    private System.Windows.Point GetMouseScreenPosition()
+    private void WindowOnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        return PointToScreen(Mouse.GetPosition(this));
+        if (e.ButtonState != MouseButtonState.Pressed || IsInteractiveElement(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        BeginDragMove(e);
     }
 
-    private Vector ScreenPixelsToDips(Vector screenPixels)
+    private void WindowOnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        var source = PresentationSource.FromVisual(this);
-        return source?.CompositionTarget?.TransformFromDevice.Transform(screenPixels) ?? screenPixels;
+        if (e.Key == Key.Escape)
+        {
+            Hide();
+        }
     }
 
     private void BeginDragMove(MouseButtonEventArgs e)
@@ -570,16 +525,44 @@ public partial class UsageOverlayWindow : Window
         }
         catch (InvalidOperationException)
         {
-            // DragMove can throw if the mouse capture changes during the drag.
+            // DragMove can throw if mouse capture changes during the drag.
         }
     }
 
-    private void WindowOnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private static bool IsInteractiveElement(DependencyObject? source)
     {
-        if (e.Key == Key.Escape)
+        while (source is not null)
         {
-            Hide();
+            if (source is WpfButtonBase or Thumb or WpfScrollBar or WpfTextBoxBase or WpfSlider or WpfComboBox or Hyperlink)
+            {
+                return true;
+            }
+
+            if (source.GetType().Name is "TitleBarButton")
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
         }
+
+        return false;
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        if (WindowState == WindowState.Maximized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        base.OnStateChanged(e);
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        e.Cancel = true;
+        Hide();
     }
 
     protected override void OnClosed(EventArgs e)
@@ -591,20 +574,5 @@ public partial class UsageOverlayWindow : Window
         }
 
         base.OnClosed(e);
-    }
-
-    private static bool IsInteractiveElement(DependencyObject? source)
-    {
-        while (source is not null)
-        {
-            if (source is System.Windows.Controls.Primitives.ButtonBase or Thumb)
-            {
-                return true;
-            }
-
-            source = VisualTreeHelper.GetParent(source);
-        }
-
-        return false;
     }
 }

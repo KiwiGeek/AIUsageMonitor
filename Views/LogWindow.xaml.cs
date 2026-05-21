@@ -4,7 +4,7 @@ using AIUsageMonitor.Services;
 
 namespace AIUsageMonitor.Views;
 
-public partial class LogWindow : Window
+public partial class LogWindow : FluentAppWindow
 {
     private readonly AppLogService _logService;
 

@@ -1,60 +1,73 @@
-<Window x:Class="AIUsageMonitor.Views.CursorDashboardLoginWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-        Title="Cursor Dashboard Login"
-        Width="1100"
-        Height="760"
-        WindowStartupLocation="CenterOwner"
-        Background="#15171D"
-        Foreground="#F9FAFB"
-        Icon="/Assets/AppIcon.ico"
-        ShowInTaskbar="False">
-    <Grid Background="#15171D">
+<local:FluentAppWindow x:Class="AIUsageMonitor.Views.CursorDashboardLoginWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:local="clr-namespace:AIUsageMonitor.Views"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+                 Title="Cursor Dashboard Login"
+                 Width="1100"
+                 Height="760"
+                 ExtendsContentIntoTitleBar="True"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                 Icon="/Assets/AppIcon.ico"
+                 ShowInTaskbar="False"
+                 WindowBackdropType="Mica"
+                 WindowCornerPreference="Round"
+                 WindowStartupLocation="CenterOwner"
+                 ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+                 ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <DockPanel Margin="16,14,16,12">
+        <ui:TitleBar Title="Cursor Dashboard Login"
+                     Grid.Row="0" />
+
+        <Grid Grid.Row="1"
+              Margin="24,8,24,24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
             <TextBlock Text="Log into Cursor, open the usage dashboard, then save the dashboard login."
-                       Foreground="#D6DAE1"
                        FontSize="13"
-                       VerticalAlignment="Center" />
-        </DockPanel>
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-        <Border Grid.Row="1"
-                Margin="16,0"
-                BorderBrush="#343A46"
-                BorderThickness="1">
-            <wv2:WebView2 x:Name="DashboardWebView" />
-        </Border>
+            <Border Grid.Row="1"
+                    Margin="0,12,0,12"
+                    BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                    BorderThickness="1">
+                <wv2:WebView2 x:Name="DashboardWebView" />
+            </Border>
 
-        <Grid Grid.Row="2"
-              Margin="16,12,16,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="StatusTextBlock"
-                       Foreground="#8B93A1"
-                       FontSize="12"
-                       TextWrapping="Wrap"
-                       VerticalAlignment="Center" />
-            <Button Grid.Column="1"
-                    Width="150"
-                    Height="34"
-                    Margin="12,0,8,0"
-                    Content="Save Login"
-                    Click="SaveLoginButtonOnClick" />
-            <Button Grid.Column="2"
-                    Width="92"
-                    Height="34"
-                    Content="Close"
-                    Click="CloseButtonOnClick" />
+                <TextBlock x:Name="StatusTextBlock"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                           TextWrapping="Wrap" />
+                <ui:Button Grid.Column="1"
+                           Width="150"
+                           Margin="12,0,8,0"
+                           Appearance="Primary"
+                           Content="Save Login"
+                           Click="SaveLoginButtonOnClick" />
+                <ui:Button Grid.Column="2"
+                           Width="92"
+                           Appearance="Secondary"
+                           Content="Close"
+                           Click="CloseButtonOnClick" />
+            </Grid>
         </Grid>
     </Grid>
-</Window>
+</local:FluentAppWindow>

@@ -1,11 +1,10 @@
 using System.Windows;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.Services;
-using WpfButton = System.Windows.Controls.Button;
 
 namespace AIUsageMonitor.Views;
 
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : FluentAppWindow
 {
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;
@@ -74,7 +73,7 @@ public partial class SettingsWindow : Window
 
     private void ProviderSetupButtonOnClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not WpfButton { Tag: string providerName })
+        if (sender is not FrameworkElement { Tag: string providerName })
         {
             return;
         }

@@ -6,7 +6,7 @@ using Microsoft.Web.WebView2.Core;
 
 namespace AIUsageMonitor.Views;
 
-public partial class CursorDashboardLoginWindow : Window
+public partial class CursorDashboardLoginWindow : FluentAppWindow
 {
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;
