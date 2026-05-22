@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -126,7 +127,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     public event EventHandler? SettingsRequested;
 
-    public event EventHandler? DeepSeekPeakOverrideRequested;
+    public event EventHandler? DeepSeekRefreshRequested;
+
+    public event EventHandler? DeepSeekSettingsRequested;
+
+    public event EventHandler? DeepSeekLaunchTuiRequested;
 
     public event EventHandler? LogsRequested;
 
@@ -2167,7 +2172,28 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
 
         e.Handled = true;
-        DeepSeekPeakOverrideRequested?.Invoke(this, EventArgs.Empty);
+
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        var refreshItem = new System.Windows.Controls.MenuItem { Header = "Refresh" };
+        refreshItem.Click += (_, _) => DeepSeekRefreshRequested?.Invoke(this, EventArgs.Empty);
+
+        var settingsItem = new System.Windows.Controls.MenuItem { Header = "Settings" };
+        settingsItem.Click += (_, _) => DeepSeekSettingsRequested?.Invoke(this, EventArgs.Empty);
+
+        menu.Items.Add(refreshItem);
+        menu.Items.Add(settingsItem);
+
+        if (IsDeepSeekTuiInstalled())
+        {
+            var launchItem = new System.Windows.Controls.MenuItem { Header = "Launch DeepSeek TUI" };
+            launchItem.Click += (_, _) => DeepSeekLaunchTuiRequested?.Invoke(this, EventArgs.Empty);
+            menu.Items.Add(launchItem);
+        }
+
+        menu.PlacementTarget = card;
+        menu.Placement = PlacementMode.MousePoint;
+        menu.IsOpen = true;
     }
 
     private void ProviderCard_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
@@ -2270,6 +2296,26 @@ public partial class UsageOverlayWindow : FluentAppWindow
             if (found != null) return found;
         }
         return null;
+    }
+
+    private static bool IsDeepSeekTuiInstalled()
+    {
+        try
+        {
+            using var proc = Process.Start(new ProcessStartInfo("where.exe", "deepseek")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true
+            });
+            if (proc is null) return false;
+            proc.WaitForExit(2000);
+            return proc.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
 }

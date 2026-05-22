@@ -95,8 +95,6 @@ public sealed class DeepSeekUsageCollector : IUsageCollector
         {
             var currency = TryGetString(info, "currency") ?? "USD";
             var totalBalance = TryGetDecimal(info, "total_balance");
-            var grantedBalance = TryGetDecimal(info, "granted_balance");
-            var toppedUpBalance = TryGetDecimal(info, "topped_up_balance");
 
             // Last observed balance acts as the peak: resets whenever balance increases
             // (first run or top-up), so $20 topped up after spending $50 becomes the new 100%.
@@ -123,9 +121,7 @@ public sealed class DeepSeekUsageCollector : IUsageCollector
             else
             {
                 usedPercent = Math.Clamp((double)((peak - totalBalance) / peak * 100), 0, 100);
-                var breakdown = BuildBreakdown(currency, grantedBalance, toppedUpBalance);
-                detail = $"{currency} {totalBalance:0.00} of {currency} {peak:0.00} remaining" +
-                         (breakdown.Length > 0 ? $" ({breakdown})" : string.Empty);
+                detail = $"{currency} {totalBalance:0.00} of {currency} {peak:0.00} remaining";
             }
 
             windows.Add(ProviderUsageFactory.PercentWindow(title, usedPercent, null, detail));
@@ -164,26 +160,6 @@ public sealed class DeepSeekUsageCollector : IUsageCollector
         catch (Exception)
         {
         }
-    }
-
-    private static string BuildBreakdown(string currency, decimal granted, decimal toppedUp)
-    {
-        if (granted > 0 && toppedUp > 0)
-        {
-            return $"{currency} {granted:0.00} granted + {currency} {toppedUp:0.00} topped up";
-        }
-
-        if (granted > 0)
-        {
-            return $"{currency} {granted:0.00} granted";
-        }
-
-        if (toppedUp > 0)
-        {
-            return $"{currency} {toppedUp:0.00} topped up";
-        }
-
-        return string.Empty;
     }
 
     private static string? TryGetString(JsonElement element, string propertyName)

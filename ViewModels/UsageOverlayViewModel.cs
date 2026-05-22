@@ -147,6 +147,37 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
         return providerNames.Any(providerName => !existingProviderNames.Contains(providerName));
     }
 
+    public void SetCheckingSingle(string providerName)
+    {
+        var card = Providers.FirstOrDefault(p =>
+            string.Equals(p.ShortName, providerName, StringComparison.OrdinalIgnoreCase));
+        card?.SetChecking(true);
+    }
+
+    public void ApplyProviderUpdate(ProviderUsage usage, bool waifuEnabled = false)
+    {
+        var index = -1;
+        for (var i = 0; i < Providers.Count; i++)
+        {
+            if (string.Equals(Providers[i].ShortName, usage.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        var card = new ProviderUsageCard(usage, waifuEnabled);
+        if (index >= 0)
+        {
+            Providers[index] = card;
+        }
+        else
+        {
+            Providers.Add(card);
+            OnPropertyChanged(nameof(HasProviders));
+        }
+    }
+
     public void RefreshRelativeTimes()
     {
         foreach (var provider in Providers)

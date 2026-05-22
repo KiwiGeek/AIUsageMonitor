@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows;
@@ -29,6 +30,8 @@ public sealed class TrayIconService : IDisposable
     private UsageOverlayWindow? _overlayWindow;
     private LogWindow? _logWindow;
     private CursorDashboardLoginWindow? _cursorDashboardLoginWindow;
+    private DeepSeekSettingsViewModel? _deepSeekSettingsViewModel;
+    private DeepSeekSettingsWindow? _deepSeekSettingsWindow;
     private CancellationTokenSource? _refreshCts;
     private bool _suppressNextCancellationLog;
     private bool _disposed;
@@ -82,6 +85,7 @@ public sealed class TrayIconService : IDisposable
         _disposed = true;
         _windowPlacementSaveTimer.Stop();
         SaveOverlayWindowPlacement();
+        _deepSeekSettingsViewModel?.Dispose();
         _refreshCts?.Cancel();
         _refreshCts = null;
         _refreshTimer.Stop();
@@ -153,7 +157,9 @@ public sealed class TrayIconService : IDisposable
         _overlayWindow.SettingsRequested += (_, _) => ShowSettings();
         _overlayWindow.LogsRequested += (_, _) => ShowLogs();
         _overlayWindow.ExitRequested += (_, _) => Exit();
-        _overlayWindow.DeepSeekPeakOverrideRequested += (_, _) => ShowDeepSeekPeakOverride();
+        _overlayWindow.DeepSeekRefreshRequested += (_, _) => _ = RefreshSingleProviderAsync(KnownProviders.DeepSeek);
+        _overlayWindow.DeepSeekSettingsRequested += (_, _) => ShowDeepSeekSettings();
+        _overlayWindow.DeepSeekLaunchTuiRequested += (_, _) => LaunchDeepSeekTui();
         _overlayWindow.LocationChanged += OverlayWindowOnLocationChanged;
         _overlayWindow.SizeChanged += OverlayWindowOnSizeChanged;
         _overlayWindow.IsVisibleChanged += OverlayWindowOnIsVisibleChanged;
@@ -242,6 +248,40 @@ public sealed class TrayIconService : IDisposable
         RestartRefreshTimer();
     }
 
+    private async Task RefreshSingleProviderAsync(string providerName)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _usageAggregatorService.ResetBackoffForProvider(providerName);
+        _viewModel.SetCheckingSingle(providerName);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        try
+        {
+            var usage = await _usageAggregatorService.CollectSingleAsync(providerName, cts.Token);
+            if (_disposed || usage is null)
+            {
+                return;
+            }
+
+            _viewModel.ApplyProviderUpdate(usage, _settings.WaifuSquadEnabled);
+            _viewModel.RefreshRelativeTimes();
+            UpdateLogSummary();
+        }
+        catch (OperationCanceledException)
+        {
+            _viewModel.RefreshRelativeTimes();
+        }
+        catch (Exception ex)
+        {
+            _logService.Error(providerName, $"{ex.GetType().Name}: {ex.Message}");
+            UpdateLogSummary();
+        }
+    }
+
     private void RefreshTimerOnTick(object? sender, EventArgs e)
     {
         _ = RefreshUsageAsync(force: false);
@@ -265,27 +305,102 @@ public sealed class TrayIconService : IDisposable
         _refreshTimer.Start();
     }
 
-    private void ShowDeepSeekPeakOverride()
+    private void ShowDeepSeekSettings()
     {
-        var dialog = new DeepSeekPeakWindow(_settings);
+        if (_deepSeekSettingsWindow is not null)
+        {
+            _deepSeekSettingsWindow.Activate();
+            return;
+        }
+
+        _deepSeekSettingsViewModel = new DeepSeekSettingsViewModel(_settingsService, _logService);
+        _deepSeekSettingsViewModel.SettingsSaved += DeepSeekSettingsOnSaved;
+
+        _deepSeekSettingsWindow = new DeepSeekSettingsWindow(_deepSeekSettingsViewModel);
 
         if (_overlayWindow?.IsVisible == true)
         {
-            dialog.Owner = _overlayWindow;
+            _deepSeekSettingsWindow.Owner = _overlayWindow;
         }
         else
         {
-            dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            _deepSeekSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
 
-        if (dialog.ShowDialog() != true)
+        _deepSeekSettingsWindow.Closed += DeepSeekSettingsWindowOnClosed;
+        _deepSeekSettingsWindow.Show();
+        _deepSeekSettingsWindow.Activate();
+    }
+
+    private void DeepSeekSettingsOnSaved(object? sender, EventArgs e)
+    {
+        _settings = _settingsService.Load();
+        _overlayWindow?.ApplySettings(_settings);
+        _ = ManualRefreshAsync();
+    }
+
+    private void DeepSeekSettingsWindowOnClosed(object? sender, EventArgs e)
+    {
+        if (_deepSeekSettingsViewModel is not null)
+        {
+            _deepSeekSettingsViewModel.SettingsSaved -= DeepSeekSettingsOnSaved;
+            _deepSeekSettingsViewModel.Dispose();
+            _deepSeekSettingsViewModel = null;
+        }
+
+        _deepSeekSettingsWindow = null;
+    }
+
+    private void LaunchDeepSeekTui()
+    {
+        using var folderDialog = new WinForms.FolderBrowserDialog
+        {
+            Description = "Select workspace directory for DeepSeek TUI",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        if (folderDialog.ShowDialog() != WinForms.DialogResult.OK)
         {
             return;
         }
 
-        _settings.DeepSeekLastBalances = dialog.Settings.DeepSeekLastBalances;
-        _settingsService.Save(_settings);
-        _ = ManualRefreshAsync();
+        var workingDirectory = folderDialog.SelectedPath;
+
+        try
+        {
+            // Always wrap in cmd /k so the shell resolves PATH — WT does its own PATH
+            // lookup and may not find tools that are only on the inherited PATH.
+            var launched =
+                TryLaunchInTerminal("wt.exe", $"-d \"{workingDirectory}\" cmd /k deepseek", workingDirectory) ||
+                TryLaunchInTerminal("cmd.exe", "/k deepseek", workingDirectory);
+
+            if (!launched)
+            {
+                _logService.Warning("DeepSeek", "Could not find a suitable terminal to launch DeepSeek TUI.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService.Warning("DeepSeek", $"Could not launch DeepSeek TUI: {ex.Message}");
+        }
+    }
+
+    private static bool TryLaunchInTerminal(string fileName, string arguments, string workingDirectory)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(fileName, arguments)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = workingDirectory
+            });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void ShowSettings()
@@ -482,6 +597,7 @@ public sealed class TrayIconService : IDisposable
     private void Exit()
     {
         _cursorDashboardLoginWindow?.Close();
+        _deepSeekSettingsWindow?.Close();
         _logWindow?.Close();
         _overlayWindow?.Close();
         Dispose();

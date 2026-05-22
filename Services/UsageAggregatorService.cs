@@ -37,6 +37,43 @@ public sealed class UsageAggregatorService
         _failureStates.Clear();
     }
 
+    public void ResetBackoffForProvider(string providerName)
+    {
+        _failureStates.Remove(providerName);
+    }
+
+    public async Task<ProviderUsage?> CollectSingleAsync(string providerName, CancellationToken cancellationToken = default)
+    {
+        var settings = _settingsService.Load();
+        var collector = _collectors.FirstOrDefault(c =>
+            string.Equals(c.ProviderName, providerName, StringComparison.OrdinalIgnoreCase) &&
+            settings.IsProviderEnabled(c.ProviderName));
+
+        if (collector is null)
+        {
+            return null;
+        }
+
+        var now = DateTimeOffset.Now;
+        try
+        {
+            var usage = await collector.CollectAsync(cancellationToken);
+            usage.LastCheckedAt = DateTimeOffset.Now;
+            _failureStates.Remove(providerName);
+            return usage;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            var nextRetryAt = RecordFailure(providerName, now, ex);
+            var failed = ProviderUsageFactory.Unavailable(
+                providerName,
+                $"Collection failed. Next retry after {nextRetryAt.ToLocalTime():h:mm tt}.",
+                "Error");
+            failed.LastCheckedAt = now;
+            return failed;
+        }
+    }
+
     public async Task<UsageSnapshot> CollectAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.Now;
