@@ -92,7 +92,7 @@
                                                 <TextBlock Margin="24,4,0,0"
                                                            FontSize="12"
                                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                           Text="Claude Code local OAuth and status-line quota data."
+                                                           Text="Claude Code OAuth usage API with local status-line export as fallback."
                                                            TextWrapping="Wrap" />
                                                 <CheckBox x:Name="ClaudeStatusExporterCheckBox"
                                                           Margin="24,10,0,0"

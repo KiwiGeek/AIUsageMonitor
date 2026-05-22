@@ -88,7 +88,7 @@ public partial class SettingsWindow : FluentAppWindow
         {
             KnownProviders.Anthropic => new ProviderSetupInfo(
                 "Anthropic Setup",
-                "Install Claude Code, run claude, and sign in. Seth's AI Usage Monitor reads local Claude Code OAuth and status-line quota data when available.",
+                "Install Claude Code, run claude, and sign in. Seth's AI Usage Monitor reads ~/.claude/.credentials.json for OAuth usage, with local status-line export as fallback.",
                 "Open Claude Code setup",
                 "https://docs.claude.com/en/docs/claude-code/setup"),
             KnownProviders.OpenAI => new ProviderSetupInfo(
