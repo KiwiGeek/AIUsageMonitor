@@ -33,6 +33,7 @@ public sealed class TrayIconService : IDisposable
     private CursorDashboardLoginWindow? _cursorDashboardLoginWindow;
     private CursorSettingsWindow? _cursorSettingsWindow;
     private GeminiSettingsWindow? _geminiSettingsWindow;
+    private OpenAiSettingsWindow? _openAiSettingsWindow;
     private DeepSeekSettingsWindow? _deepSeekSettingsWindow;
     private GitHubCopilotSettingsWindow? _gitHubCopilotSettingsWindow;
     private CancellationTokenSource? _refreshCts;
@@ -322,7 +323,9 @@ public sealed class TrayIconService : IDisposable
 
     private void StoreOnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
+        if (e.PropertyName == nameof(AppSettingsStore.OpenAiEnabled))
+            HandleProviderEnabledChanged(KnownProviders.OpenAI, _settingsStore.OpenAiEnabled);
+        else if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
             HandleProviderEnabledChanged(KnownProviders.Cursor, _settingsStore.CursorEnabled);
         else if (e.PropertyName == nameof(AppSettingsStore.GeminiEnabled))
             HandleProviderEnabledChanged(KnownProviders.Gemini, _settingsStore.GeminiEnabled);
@@ -346,6 +349,8 @@ public sealed class TrayIconService : IDisposable
             ShowCursorSettings();
         else if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase))
             ShowGeminiSettings();
+        else if (string.Equals(providerName, KnownProviders.OpenAI, StringComparison.OrdinalIgnoreCase))
+            ShowOpenAiSettings();
         else if (string.Equals(providerName, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase))
             ShowDeepSeekSettings();
         else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
@@ -370,6 +375,26 @@ public sealed class TrayIconService : IDisposable
         _cursorSettingsWindow.Closed += (_, _) => _cursorSettingsWindow = null;
         _cursorSettingsWindow.Show();
         _cursorSettingsWindow.Activate();
+    }
+
+    private void ShowOpenAiSettings()
+    {
+        if (_openAiSettingsWindow is not null)
+        {
+            _openAiSettingsWindow.Activate();
+            return;
+        }
+
+        _openAiSettingsWindow = new OpenAiSettingsWindow(_settingsStore);
+
+        if (_overlayWindow?.IsVisible == true)
+            _openAiSettingsWindow.Owner = _overlayWindow;
+        else
+            _openAiSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        _openAiSettingsWindow.Closed += (_, _) => _openAiSettingsWindow = null;
+        _openAiSettingsWindow.Show();
+        _openAiSettingsWindow.Activate();
     }
 
     private void ShowGeminiSettings()
@@ -438,8 +463,39 @@ public sealed class TrayIconService : IDisposable
             LaunchCursorAgentCli();
         else if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase))
             LaunchGeminiCli();
+        else if (string.Equals(providerName, KnownProviders.OpenAI, StringComparison.OrdinalIgnoreCase))
+            LaunchCodexCli();
         else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
             LaunchGitHubCopilotCli();
+    }
+
+    private void LaunchCodexCli()
+    {
+        using var folderDialog = new WinForms.FolderBrowserDialog
+        {
+            Description = "Select workspace directory for Codex CLI",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        if (folderDialog.ShowDialog() != WinForms.DialogResult.OK)
+            return;
+
+        var workingDirectory = folderDialog.SelectedPath;
+
+        try
+        {
+            var launched =
+                TryLaunchInTerminal("wt.exe", $"-d \"{workingDirectory}\" cmd /k codex", workingDirectory) ||
+                TryLaunchInTerminal("cmd.exe", "/k codex", workingDirectory);
+
+            if (!launched)
+                _logService.Warning("OpenAI", "Could not find a suitable terminal to launch Codex CLI.");
+        }
+        catch (Exception ex)
+        {
+            _logService.Warning("OpenAI", $"Could not launch Codex CLI: {ex.Message}");
+        }
     }
 
     private void LaunchGeminiCli()
@@ -594,6 +650,7 @@ public sealed class TrayIconService : IDisposable
         else
             settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
+        settingsWindow.OpenAiSetupRequested += (_, _) => ShowOpenAiSettings();
         settingsWindow.CursorSetupRequested += (_, _) => ShowCursorSettings();
         settingsWindow.GeminiSetupRequested += (_, _) => ShowGeminiSettings();
 
@@ -781,6 +838,7 @@ public sealed class TrayIconService : IDisposable
         _cursorDashboardLoginWindow?.Close();
         _cursorSettingsWindow?.Close();
         _geminiSettingsWindow?.Close();
+        _openAiSettingsWindow?.Close();
         _deepSeekSettingsWindow?.Close();
         _gitHubCopilotSettingsWindow?.Close();
         _logWindow?.Close();

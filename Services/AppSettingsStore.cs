@@ -25,6 +25,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
 
     private bool _cursorEnabled;
     private bool _geminiEnabled;
+    private bool _openAiEnabled;
 
     private bool _gitHubCopilotEnabled;
     private string _gitHubCopilotApiKey = string.Empty;
@@ -110,6 +111,20 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         }
     }
 
+    // ── OpenAI ────────────────────────────────────────────────────────────────
+
+    public bool OpenAiEnabled
+    {
+        get => _openAiEnabled;
+        set
+        {
+            if (_openAiEnabled == value) return;
+            _openAiEnabled = value;
+            SaveImmediate();
+            OnPropertyChanged();
+        }
+    }
+
     // ── Gemini ────────────────────────────────────────────────────────────────
 
     public bool GeminiEnabled
@@ -168,12 +183,14 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
 
         _cursorEnabled = s.IsProviderEnabled(KnownProviders.Cursor);
         _geminiEnabled = s.IsProviderEnabled(KnownProviders.Gemini);
+        _openAiEnabled = s.IsProviderEnabled(KnownProviders.OpenAI);
 
         _gitHubCopilotEnabled = s.IsProviderEnabled(KnownProviders.GitHubCopilot);
         _gitHubCopilotApiKey = s.GitHubCopilotApiKey;
 
         OnPropertyChanged(nameof(CursorEnabled));
         OnPropertyChanged(nameof(GeminiEnabled));
+        OnPropertyChanged(nameof(OpenAiEnabled));
         OnPropertyChanged(nameof(DeepSeekEnabled));
         OnPropertyChanged(nameof(DeepSeekApiKey));
         OnPropertyChanged(nameof(DeepSeekApiKeyStatus));
@@ -223,6 +240,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
             var s = _settingsService.Load();
             s.SetProviderEnabled(KnownProviders.Cursor, _cursorEnabled);
             s.SetProviderEnabled(KnownProviders.Gemini, _geminiEnabled);
+            s.SetProviderEnabled(KnownProviders.OpenAI, _openAiEnabled);
             s.SetProviderEnabled(KnownProviders.DeepSeek, _deepSeekEnabled);
             s.DeepSeekApiKey = _deepSeekApiKey.Trim();
             s.SetProviderEnabled(KnownProviders.GitHubCopilot, _gitHubCopilotEnabled);

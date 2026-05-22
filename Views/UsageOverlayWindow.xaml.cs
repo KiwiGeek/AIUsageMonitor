@@ -2168,6 +2168,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         KnownProviders.DeepSeek,
         KnownProviders.Gemini,
         KnownProviders.GitHubCopilot,
+        KnownProviders.OpenAI,
     };
 
     private void ProviderCard_MouseRightButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -2224,6 +2225,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
             IsCliInstalled("gemini"))
         {
             var launchItem = new WpfMenuItem { Header = "Launch Gemini CLI" };
+            launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
+            menu.Items.Add(launchItem);
+        }
+
+        if (string.Equals(providerName, KnownProviders.OpenAI, StringComparison.OrdinalIgnoreCase) &&
+            IsCliInstalled("codex"))
+        {
+            var launchItem = new WpfMenuItem { Header = "Launch Codex CLI" };
             launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
             menu.Items.Add(launchItem);
         }

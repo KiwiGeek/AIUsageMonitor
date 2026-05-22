@@ -12,6 +12,7 @@ public partial class SettingsWindow : FluentDialogWindow
     private readonly AppSettingsStore _store;
     private readonly bool _cursorEnabledSnapshot;
     private readonly bool _geminiEnabledSnapshot;
+    private readonly bool _openAiEnabledSnapshot;
     private readonly bool _deepSeekEnabledSnapshot;
     private readonly bool _gitHubCopilotEnabledSnapshot;
 
@@ -23,19 +24,22 @@ public partial class SettingsWindow : FluentDialogWindow
         _store = store;
         _cursorEnabledSnapshot = store.CursorEnabled;
         _geminiEnabledSnapshot = store.GeminiEnabled;
+        _openAiEnabledSnapshot = store.OpenAiEnabled;
         _deepSeekEnabledSnapshot = store.DeepSeekEnabled;
         _gitHubCopilotEnabledSnapshot = store.GitHubCopilotEnabled;
 
         Settings = settings.Clone();
         UpdateIntervalTextBox.Text = Settings.UpdateIntervalMinutes.ToString();
         AnthropicProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Anthropic);
-        OpenAiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.OpenAI);
+        OpenAiProviderEnabledCheckBox.IsChecked = store.OpenAiEnabled;
         GeminiProviderEnabledCheckBox.IsChecked = store.GeminiEnabled;
         CursorProviderEnabledCheckBox.IsChecked = store.CursorEnabled;
         DeepSeekProviderEnabledCheckBox.IsChecked = store.DeepSeekEnabled;
         GitHubCopilotProviderEnabledCheckBox.IsChecked = store.GitHubCopilotEnabled;
 
         // Checkbox → store (writes to disk immediately so provider settings windows see it live).
+        OpenAiProviderEnabledCheckBox.Checked   += (_, _) => _store.OpenAiEnabled = true;
+        OpenAiProviderEnabledCheckBox.Unchecked += (_, _) => _store.OpenAiEnabled = false;
         CursorProviderEnabledCheckBox.Checked   += (_, _) => _store.CursorEnabled = true;
         CursorProviderEnabledCheckBox.Unchecked += (_, _) => _store.CursorEnabled = false;
         GeminiProviderEnabledCheckBox.Checked   += (_, _) => _store.GeminiEnabled = true;
@@ -79,7 +83,9 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void StoreOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
+        if (e.PropertyName == nameof(AppSettingsStore.OpenAiEnabled))
+            OpenAiProviderEnabledCheckBox.IsChecked = _store.OpenAiEnabled;
+        else if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
             CursorProviderEnabledCheckBox.IsChecked = _store.CursorEnabled;
         else if (e.PropertyName == nameof(AppSettingsStore.GeminiEnabled))
             GeminiProviderEnabledCheckBox.IsChecked = _store.GeminiEnabled;
@@ -108,6 +114,7 @@ public partial class SettingsWindow : FluentDialogWindow
         DialogResult = true;
     }
 
+    public event EventHandler? OpenAiSetupRequested;
     public event EventHandler? CursorSetupRequested;
     public event EventHandler? GeminiSetupRequested;
 
@@ -120,6 +127,12 @@ public partial class SettingsWindow : FluentDialogWindow
     {
         if (sender is not FrameworkElement { Tag: string providerName })
         {
+            return;
+        }
+
+        if (string.Equals(providerName, KnownProviders.OpenAI, StringComparison.OrdinalIgnoreCase))
+        {
+            OpenAiSetupRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
@@ -176,6 +189,7 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void CancelButtonOnClick(object sender, RoutedEventArgs e)
     {
+        _store.OpenAiEnabled = _openAiEnabledSnapshot;
         _store.CursorEnabled = _cursorEnabledSnapshot;
         _store.GeminiEnabled = _geminiEnabledSnapshot;
         _store.DeepSeekEnabled = _deepSeekEnabledSnapshot;
