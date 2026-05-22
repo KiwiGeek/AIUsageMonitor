@@ -2164,6 +2164,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private static readonly HashSet<string> ContextMenuProviders = new(StringComparer.OrdinalIgnoreCase)
     {
+        KnownProviders.Cursor,
         KnownProviders.DeepSeek,
         KnownProviders.GitHubCopilot,
     };
@@ -2206,6 +2207,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
             IsCliInstalled("gh"))
         {
             var launchItem = new WpfMenuItem { Header = "Launch GitHub Copilot CLI" };
+            launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
+            menu.Items.Add(launchItem);
+        }
+
+        if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase) &&
+            IsCliInstalled("cursor-agent"))
+        {
+            var launchItem = new WpfMenuItem { Header = "Launch Cursor Agent" };
             launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
             menu.Items.Add(launchItem);
         }

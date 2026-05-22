@@ -10,6 +10,7 @@ public partial class SettingsWindow : FluentDialogWindow
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;
     private readonly AppSettingsStore _store;
+    private readonly bool _cursorEnabledSnapshot;
     private readonly bool _deepSeekEnabledSnapshot;
     private readonly bool _gitHubCopilotEnabledSnapshot;
 
@@ -19,6 +20,7 @@ public partial class SettingsWindow : FluentDialogWindow
         _settingsService = settingsService;
         _logService = logService;
         _store = store;
+        _cursorEnabledSnapshot = store.CursorEnabled;
         _deepSeekEnabledSnapshot = store.DeepSeekEnabled;
         _gitHubCopilotEnabledSnapshot = store.GitHubCopilotEnabled;
 
@@ -27,19 +29,26 @@ public partial class SettingsWindow : FluentDialogWindow
         AnthropicProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Anthropic);
         OpenAiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.OpenAI);
         GeminiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Gemini);
-        CursorProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Cursor);
+        CursorProviderEnabledCheckBox.IsChecked = store.CursorEnabled;
         DeepSeekProviderEnabledCheckBox.IsChecked = store.DeepSeekEnabled;
         GitHubCopilotProviderEnabledCheckBox.IsChecked = store.GitHubCopilotEnabled;
 
         // Checkbox → store (writes to disk immediately so provider settings windows see it live).
+        CursorProviderEnabledCheckBox.Checked   += (_, _) => _store.CursorEnabled = true;
+        CursorProviderEnabledCheckBox.Unchecked += (_, _) => _store.CursorEnabled = false;
         DeepSeekProviderEnabledCheckBox.Checked   += (_, _) => _store.DeepSeekEnabled = true;
         DeepSeekProviderEnabledCheckBox.Unchecked += (_, _) => _store.DeepSeekEnabled = false;
         GitHubCopilotProviderEnabledCheckBox.Checked   += (_, _) => _store.GitHubCopilotEnabled = true;
         GitHubCopilotProviderEnabledCheckBox.Unchecked += (_, _) => _store.GitHubCopilotEnabled = false;
 
-        // Store → checkboxes (so provider settings windows' changes reflect here live).
+        // Store → checkboxes and mode summary (so provider settings windows' changes reflect here live).
         _store.PropertyChanged += StoreOnPropertyChanged;
-        Closed += (_, _) => _store.PropertyChanged -= StoreOnPropertyChanged;
+        _store.SettingsChanged += StoreOnSettingsChanged;
+        Closed += (_, _) =>
+        {
+            _store.PropertyChanged -= StoreOnPropertyChanged;
+            _store.SettingsChanged -= StoreOnSettingsChanged;
+        };
 
         UpdateCursorModeSummary();
         UpdateDeepSeekApiKeySummary();
@@ -62,9 +71,13 @@ public partial class SettingsWindow : FluentDialogWindow
 
     public AppSettings Settings { get; private set; }
 
+    private void StoreOnSettingsChanged(object? sender, EventArgs e) => UpdateCursorModeSummary();
+
     private void StoreOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
+        if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
+            CursorProviderEnabledCheckBox.IsChecked = _store.CursorEnabled;
+        else if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
             DeepSeekProviderEnabledCheckBox.IsChecked = _store.DeepSeekEnabled;
         else if (e.PropertyName == nameof(AppSettingsStore.GitHubCopilotEnabled))
             GitHubCopilotProviderEnabledCheckBox.IsChecked = _store.GitHubCopilotEnabled;
@@ -89,22 +102,11 @@ public partial class SettingsWindow : FluentDialogWindow
         DialogResult = true;
     }
 
+    public event EventHandler? CursorSetupRequested;
+
     private void CursorSetupButtonOnClick(object sender, RoutedEventArgs e)
     {
-        ApplySettingsFromControls();
-
-        var setupWindow = new CursorSetupWindow(Settings, _settingsService, _logService)
-        {
-            Owner = this
-        };
-
-        if (setupWindow.ShowDialog() != true)
-        {
-            return;
-        }
-
-        Settings = setupWindow.Settings;
-        UpdateCursorModeSummary();
+        CursorSetupRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void ProviderSetupButtonOnClick(object sender, RoutedEventArgs e)
@@ -161,6 +163,7 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void CancelButtonOnClick(object sender, RoutedEventArgs e)
     {
+        _store.CursorEnabled = _cursorEnabledSnapshot;
         _store.DeepSeekEnabled = _deepSeekEnabledSnapshot;
         _store.GitHubCopilotEnabled = _gitHubCopilotEnabledSnapshot;
         DialogResult = false;
@@ -237,8 +240,9 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void UpdateCursorModeSummary()
     {
-        Settings.Normalize();
-        CursorModeSummaryTextBlock.Text = string.Equals(Settings.CursorUsageMode, AppSettings.CursorUsageModeTeamsApiKey, StringComparison.Ordinal)
+        var s = _settingsService.Load();
+        s.Normalize();
+        CursorModeSummaryTextBlock.Text = string.Equals(s.CursorUsageMode, AppSettings.CursorUsageModeTeamsApiKey, StringComparison.Ordinal)
             ? "Mode: Teams Admin API key"
             : "Mode: Personal subscription dashboard login";
     }

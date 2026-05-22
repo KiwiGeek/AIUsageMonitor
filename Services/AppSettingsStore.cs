@@ -23,6 +23,8 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
     private string _deepSeekCurrency = "USD";
     private string _deepSeekPeakValidationMessage = string.Empty;
 
+    private bool _cursorEnabled;
+
     private bool _gitHubCopilotEnabled;
     private string _gitHubCopilotApiKey = string.Empty;
 
@@ -93,6 +95,20 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         }
     }
 
+    // ── Cursor ────────────────────────────────────────────────────────────────
+
+    public bool CursorEnabled
+    {
+        get => _cursorEnabled;
+        set
+        {
+            if (_cursorEnabled == value) return;
+            _cursorEnabled = value;
+            SaveImmediate();
+            OnPropertyChanged();
+        }
+    }
+
     // ── GitHub Copilot ────────────────────────────────────────────────────────
 
     public bool GitHubCopilotEnabled
@@ -135,9 +151,12 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
             ? peak.ToString("0.00", CultureInfo.InvariantCulture)
             : string.Empty;
 
+        _cursorEnabled = s.IsProviderEnabled(KnownProviders.Cursor);
+
         _gitHubCopilotEnabled = s.IsProviderEnabled(KnownProviders.GitHubCopilot);
         _gitHubCopilotApiKey = s.GitHubCopilotApiKey;
 
+        OnPropertyChanged(nameof(CursorEnabled));
         OnPropertyChanged(nameof(DeepSeekEnabled));
         OnPropertyChanged(nameof(DeepSeekApiKey));
         OnPropertyChanged(nameof(DeepSeekApiKeyStatus));
@@ -185,6 +204,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         try
         {
             var s = _settingsService.Load();
+            s.SetProviderEnabled(KnownProviders.Cursor, _cursorEnabled);
             s.SetProviderEnabled(KnownProviders.DeepSeek, _deepSeekEnabled);
             s.DeepSeekApiKey = _deepSeekApiKey.Trim();
             s.SetProviderEnabled(KnownProviders.GitHubCopilot, _gitHubCopilotEnabled);
@@ -201,6 +221,12 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         {
             _logService.Warning("Settings", $"Could not save settings: {ex.Message}");
         }
+    }
+
+    public void NotifyExternalSave()
+    {
+        Load();
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Dispose()

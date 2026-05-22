@@ -31,6 +31,7 @@ public sealed class TrayIconService : IDisposable
     private UsageOverlayWindow? _overlayWindow;
     private LogWindow? _logWindow;
     private CursorDashboardLoginWindow? _cursorDashboardLoginWindow;
+    private CursorSettingsWindow? _cursorSettingsWindow;
     private DeepSeekSettingsWindow? _deepSeekSettingsWindow;
     private GitHubCopilotSettingsWindow? _gitHubCopilotSettingsWindow;
     private CancellationTokenSource? _refreshCts;
@@ -320,7 +321,9 @@ public sealed class TrayIconService : IDisposable
 
     private void StoreOnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
+        if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
+            HandleProviderEnabledChanged(KnownProviders.Cursor, _settingsStore.CursorEnabled);
+        else if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
             HandleProviderEnabledChanged(KnownProviders.DeepSeek, _settingsStore.DeepSeekEnabled);
         else if (e.PropertyName == nameof(AppSettingsStore.GitHubCopilotEnabled))
             HandleProviderEnabledChanged(KnownProviders.GitHubCopilot, _settingsStore.GitHubCopilotEnabled);
@@ -336,14 +339,32 @@ public sealed class TrayIconService : IDisposable
 
     private void ShowProviderSettings(string providerName)
     {
-        if (string.Equals(providerName, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase))
-        {
+        if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
+            ShowCursorSettings();
+        else if (string.Equals(providerName, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase))
             ShowDeepSeekSettings();
-        }
         else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
-        {
             ShowGitHubCopilotSettings();
+    }
+
+    private void ShowCursorSettings()
+    {
+        if (_cursorSettingsWindow is not null)
+        {
+            _cursorSettingsWindow.Activate();
+            return;
         }
+
+        _cursorSettingsWindow = new CursorSettingsWindow(_settingsStore, _settingsService, _logService);
+
+        if (_overlayWindow?.IsVisible == true)
+            _cursorSettingsWindow.Owner = _overlayWindow;
+        else
+            _cursorSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        _cursorSettingsWindow.Closed += (_, _) => _cursorSettingsWindow = null;
+        _cursorSettingsWindow.Show();
+        _cursorSettingsWindow.Activate();
     }
 
     private void ShowDeepSeekSettings()
@@ -388,9 +409,38 @@ public sealed class TrayIconService : IDisposable
 
     private void LaunchProviderCli(string providerName)
     {
-        if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
-        {
+        if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
+            LaunchCursorAgentCli();
+        else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
             LaunchGitHubCopilotCli();
+    }
+
+    private void LaunchCursorAgentCli()
+    {
+        using var folderDialog = new WinForms.FolderBrowserDialog
+        {
+            Description = "Select workspace directory for Cursor Agent",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        if (folderDialog.ShowDialog() != WinForms.DialogResult.OK)
+            return;
+
+        var workingDirectory = folderDialog.SelectedPath;
+
+        try
+        {
+            var launched =
+                TryLaunchInTerminal("wt.exe", $"-d \"{workingDirectory}\" cmd /k cursor-agent", workingDirectory) ||
+                TryLaunchInTerminal("cmd.exe", "/k cursor-agent", workingDirectory);
+
+            if (!launched)
+                _logService.Warning("Cursor", "Could not find a suitable terminal to launch Cursor Agent.");
+        }
+        catch (Exception ex)
+        {
+            _logService.Warning("Cursor", $"Could not launch Cursor Agent: {ex.Message}");
         }
     }
 
@@ -487,6 +537,8 @@ public sealed class TrayIconService : IDisposable
             settingsWindow.Owner = _overlayWindow;
         else
             settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        settingsWindow.CursorSetupRequested += (_, _) => ShowCursorSettings();
 
         var confirmed = settingsWindow.ShowDialog() == true;
 
@@ -670,6 +722,7 @@ public sealed class TrayIconService : IDisposable
     private void Exit()
     {
         _cursorDashboardLoginWindow?.Close();
+        _cursorSettingsWindow?.Close();
         _deepSeekSettingsWindow?.Close();
         _gitHubCopilotSettingsWindow?.Close();
         _logWindow?.Close();
