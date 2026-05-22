@@ -56,6 +56,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const double SnapAutoHideRevealZonePixels = 8;
     private const double SnapAutoHideVisibleStripPixels = 4;
     private const int SnapAutoHidePollIntervalMs = 100;
+    private const double PortraitToolbarAspectRatioThreshold = 0.85;
 
     public static readonly DependencyProperty DisplayModeProperty = DependencyProperty.Register(
         nameof(DisplayMode),
@@ -83,6 +84,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     public static readonly DependencyProperty IsHorizontalDockProperty = DependencyProperty.Register(
         nameof(IsHorizontalDock),
+        typeof(bool),
+        typeof(UsageOverlayWindow),
+        new PropertyMetadata(false));
+
+    public static readonly DependencyProperty ShowSideToolbarProperty = DependencyProperty.Register(
+        nameof(ShowSideToolbar),
         typeof(bool),
         typeof(UsageOverlayWindow),
         new PropertyMetadata(false));
@@ -329,6 +336,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
         private set => SetValue(IsHorizontalDockProperty, value);
     }
 
+    public bool ShowSideToolbar
+    {
+        get => (bool)GetValue(ShowSideToolbarProperty);
+        private set => SetValue(ShowSideToolbarProperty, value);
+    }
+
+    private bool ComputeShowSideToolbar() =>
+        IsHorizontalDock ||
+        (ActualWidth >= MiniWidthBreakpoint &&
+         (ActualHeight > ActualWidth * PortraitToolbarAspectRatioThreshold ||
+          ActualHeight < FullMinimumVerticalChrome + FullMinimumCardSlotHeight));
+
     /// <summary>
     /// Which snap edge drives toolbar chrome. While dragging, only the live preview counts —
     /// committed <see cref="_currentSnapEdge"/> must not keep the horizontal dock toolbar visible
@@ -358,6 +377,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         var chromeEdge = GetChromeSnapEdge();
         IsHorizontalDock = chromeEdge is OverlayEdgeSnap.Top or OverlayEdgeSnap.Bottom;
+        ShowSideToolbar = ComputeShowSideToolbar();
     }
 
     private void CancelQueuedLayoutUpdates()
@@ -671,6 +691,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
+        ShowSideToolbar = ComputeShowSideToolbar();
         var layout = CalculateResponsiveLayout(ActualWidth, ActualHeight, providerCount);
         if (!string.Equals(DisplayMode, layout.DisplayMode, StringComparison.Ordinal))
         {
@@ -838,8 +859,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
         for (var columns = 1; columns <= maxColumns; columns++)
         {
             var rows = (int)Math.Ceiling(providerCount / (double)columns);
-            var cardSlotWidth = Math.Floor((availableWidth - (columns * marginWidth)) / columns);
-            var cardSlotHeight = Math.Floor((availableHeight - (rows * marginHeight)) / rows);
+            var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
+            var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
 
             if (cardSlotWidth < minimumCardWidth || cardSlotHeight < minimumCardSlotHeight)
             {
@@ -1291,14 +1312,13 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return true;
         }
 
-        if (shapeScore > bestShapeScore + LayoutComparisonTolerance)
+        // Reject extreme aspect ratios; among acceptable layouts, prefer largest card area.
+        const double minAcceptableShape = 0.4;
+        var newOk = shapeScore >= minAcceptableShape;
+        var bestOk = bestShapeScore >= minAcceptableShape;
+        if (newOk != bestOk)
         {
-            return true;
-        }
-
-        if (shapeScore < bestShapeScore - LayoutComparisonTolerance)
-        {
-            return false;
+            return newOk;
         }
 
         return area > bestArea + LayoutComparisonTolerance;
