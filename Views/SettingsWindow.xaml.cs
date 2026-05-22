@@ -11,6 +11,7 @@ public partial class SettingsWindow : FluentDialogWindow
     private readonly AppLogService _logService;
     private readonly AppSettingsStore _store;
     private readonly bool _cursorEnabledSnapshot;
+    private readonly bool _geminiEnabledSnapshot;
     private readonly bool _deepSeekEnabledSnapshot;
     private readonly bool _gitHubCopilotEnabledSnapshot;
 
@@ -21,6 +22,7 @@ public partial class SettingsWindow : FluentDialogWindow
         _logService = logService;
         _store = store;
         _cursorEnabledSnapshot = store.CursorEnabled;
+        _geminiEnabledSnapshot = store.GeminiEnabled;
         _deepSeekEnabledSnapshot = store.DeepSeekEnabled;
         _gitHubCopilotEnabledSnapshot = store.GitHubCopilotEnabled;
 
@@ -28,7 +30,7 @@ public partial class SettingsWindow : FluentDialogWindow
         UpdateIntervalTextBox.Text = Settings.UpdateIntervalMinutes.ToString();
         AnthropicProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Anthropic);
         OpenAiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.OpenAI);
-        GeminiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Gemini);
+        GeminiProviderEnabledCheckBox.IsChecked = store.GeminiEnabled;
         CursorProviderEnabledCheckBox.IsChecked = store.CursorEnabled;
         DeepSeekProviderEnabledCheckBox.IsChecked = store.DeepSeekEnabled;
         GitHubCopilotProviderEnabledCheckBox.IsChecked = store.GitHubCopilotEnabled;
@@ -36,6 +38,8 @@ public partial class SettingsWindow : FluentDialogWindow
         // Checkbox → store (writes to disk immediately so provider settings windows see it live).
         CursorProviderEnabledCheckBox.Checked   += (_, _) => _store.CursorEnabled = true;
         CursorProviderEnabledCheckBox.Unchecked += (_, _) => _store.CursorEnabled = false;
+        GeminiProviderEnabledCheckBox.Checked   += (_, _) => _store.GeminiEnabled = true;
+        GeminiProviderEnabledCheckBox.Unchecked += (_, _) => _store.GeminiEnabled = false;
         DeepSeekProviderEnabledCheckBox.Checked   += (_, _) => _store.DeepSeekEnabled = true;
         DeepSeekProviderEnabledCheckBox.Unchecked += (_, _) => _store.DeepSeekEnabled = false;
         GitHubCopilotProviderEnabledCheckBox.Checked   += (_, _) => _store.GitHubCopilotEnabled = true;
@@ -77,6 +81,8 @@ public partial class SettingsWindow : FluentDialogWindow
     {
         if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
             CursorProviderEnabledCheckBox.IsChecked = _store.CursorEnabled;
+        else if (e.PropertyName == nameof(AppSettingsStore.GeminiEnabled))
+            GeminiProviderEnabledCheckBox.IsChecked = _store.GeminiEnabled;
         else if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
             DeepSeekProviderEnabledCheckBox.IsChecked = _store.DeepSeekEnabled;
         else if (e.PropertyName == nameof(AppSettingsStore.GitHubCopilotEnabled))
@@ -103,6 +109,7 @@ public partial class SettingsWindow : FluentDialogWindow
     }
 
     public event EventHandler? CursorSetupRequested;
+    public event EventHandler? GeminiSetupRequested;
 
     private void CursorSetupButtonOnClick(object sender, RoutedEventArgs e)
     {
@@ -113,6 +120,12 @@ public partial class SettingsWindow : FluentDialogWindow
     {
         if (sender is not FrameworkElement { Tag: string providerName })
         {
+            return;
+        }
+
+        if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase))
+        {
+            GeminiSetupRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
@@ -164,6 +177,7 @@ public partial class SettingsWindow : FluentDialogWindow
     private void CancelButtonOnClick(object sender, RoutedEventArgs e)
     {
         _store.CursorEnabled = _cursorEnabledSnapshot;
+        _store.GeminiEnabled = _geminiEnabledSnapshot;
         _store.DeepSeekEnabled = _deepSeekEnabledSnapshot;
         _store.GitHubCopilotEnabled = _gitHubCopilotEnabledSnapshot;
         DialogResult = false;

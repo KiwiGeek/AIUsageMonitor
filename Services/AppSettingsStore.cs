@@ -24,6 +24,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
     private string _deepSeekPeakValidationMessage = string.Empty;
 
     private bool _cursorEnabled;
+    private bool _geminiEnabled;
 
     private bool _gitHubCopilotEnabled;
     private string _gitHubCopilotApiKey = string.Empty;
@@ -109,6 +110,20 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         }
     }
 
+    // ── Gemini ────────────────────────────────────────────────────────────────
+
+    public bool GeminiEnabled
+    {
+        get => _geminiEnabled;
+        set
+        {
+            if (_geminiEnabled == value) return;
+            _geminiEnabled = value;
+            SaveImmediate();
+            OnPropertyChanged();
+        }
+    }
+
     // ── GitHub Copilot ────────────────────────────────────────────────────────
 
     public bool GitHubCopilotEnabled
@@ -152,11 +167,13 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
             : string.Empty;
 
         _cursorEnabled = s.IsProviderEnabled(KnownProviders.Cursor);
+        _geminiEnabled = s.IsProviderEnabled(KnownProviders.Gemini);
 
         _gitHubCopilotEnabled = s.IsProviderEnabled(KnownProviders.GitHubCopilot);
         _gitHubCopilotApiKey = s.GitHubCopilotApiKey;
 
         OnPropertyChanged(nameof(CursorEnabled));
+        OnPropertyChanged(nameof(GeminiEnabled));
         OnPropertyChanged(nameof(DeepSeekEnabled));
         OnPropertyChanged(nameof(DeepSeekApiKey));
         OnPropertyChanged(nameof(DeepSeekApiKeyStatus));
@@ -205,6 +222,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         {
             var s = _settingsService.Load();
             s.SetProviderEnabled(KnownProviders.Cursor, _cursorEnabled);
+            s.SetProviderEnabled(KnownProviders.Gemini, _geminiEnabled);
             s.SetProviderEnabled(KnownProviders.DeepSeek, _deepSeekEnabled);
             s.DeepSeekApiKey = _deepSeekApiKey.Trim();
             s.SetProviderEnabled(KnownProviders.GitHubCopilot, _gitHubCopilotEnabled);

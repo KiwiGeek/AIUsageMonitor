@@ -32,6 +32,7 @@ public sealed class TrayIconService : IDisposable
     private LogWindow? _logWindow;
     private CursorDashboardLoginWindow? _cursorDashboardLoginWindow;
     private CursorSettingsWindow? _cursorSettingsWindow;
+    private GeminiSettingsWindow? _geminiSettingsWindow;
     private DeepSeekSettingsWindow? _deepSeekSettingsWindow;
     private GitHubCopilotSettingsWindow? _gitHubCopilotSettingsWindow;
     private CancellationTokenSource? _refreshCts;
@@ -323,6 +324,8 @@ public sealed class TrayIconService : IDisposable
     {
         if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
             HandleProviderEnabledChanged(KnownProviders.Cursor, _settingsStore.CursorEnabled);
+        else if (e.PropertyName == nameof(AppSettingsStore.GeminiEnabled))
+            HandleProviderEnabledChanged(KnownProviders.Gemini, _settingsStore.GeminiEnabled);
         else if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
             HandleProviderEnabledChanged(KnownProviders.DeepSeek, _settingsStore.DeepSeekEnabled);
         else if (e.PropertyName == nameof(AppSettingsStore.GitHubCopilotEnabled))
@@ -341,6 +344,8 @@ public sealed class TrayIconService : IDisposable
     {
         if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
             ShowCursorSettings();
+        else if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase))
+            ShowGeminiSettings();
         else if (string.Equals(providerName, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase))
             ShowDeepSeekSettings();
         else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
@@ -365,6 +370,26 @@ public sealed class TrayIconService : IDisposable
         _cursorSettingsWindow.Closed += (_, _) => _cursorSettingsWindow = null;
         _cursorSettingsWindow.Show();
         _cursorSettingsWindow.Activate();
+    }
+
+    private void ShowGeminiSettings()
+    {
+        if (_geminiSettingsWindow is not null)
+        {
+            _geminiSettingsWindow.Activate();
+            return;
+        }
+
+        _geminiSettingsWindow = new GeminiSettingsWindow(_settingsStore);
+
+        if (_overlayWindow?.IsVisible == true)
+            _geminiSettingsWindow.Owner = _overlayWindow;
+        else
+            _geminiSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        _geminiSettingsWindow.Closed += (_, _) => _geminiSettingsWindow = null;
+        _geminiSettingsWindow.Show();
+        _geminiSettingsWindow.Activate();
     }
 
     private void ShowDeepSeekSettings()
@@ -411,8 +436,39 @@ public sealed class TrayIconService : IDisposable
     {
         if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
             LaunchCursorAgentCli();
+        else if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase))
+            LaunchGeminiCli();
         else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
             LaunchGitHubCopilotCli();
+    }
+
+    private void LaunchGeminiCli()
+    {
+        using var folderDialog = new WinForms.FolderBrowserDialog
+        {
+            Description = "Select workspace directory for Gemini CLI",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        if (folderDialog.ShowDialog() != WinForms.DialogResult.OK)
+            return;
+
+        var workingDirectory = folderDialog.SelectedPath;
+
+        try
+        {
+            var launched =
+                TryLaunchInTerminal("wt.exe", $"-d \"{workingDirectory}\" cmd /k gemini", workingDirectory) ||
+                TryLaunchInTerminal("cmd.exe", "/k gemini", workingDirectory);
+
+            if (!launched)
+                _logService.Warning("Gemini", "Could not find a suitable terminal to launch Gemini CLI.");
+        }
+        catch (Exception ex)
+        {
+            _logService.Warning("Gemini", $"Could not launch Gemini CLI: {ex.Message}");
+        }
     }
 
     private void LaunchCursorAgentCli()
@@ -539,6 +595,7 @@ public sealed class TrayIconService : IDisposable
             settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
         settingsWindow.CursorSetupRequested += (_, _) => ShowCursorSettings();
+        settingsWindow.GeminiSetupRequested += (_, _) => ShowGeminiSettings();
 
         var confirmed = settingsWindow.ShowDialog() == true;
 
@@ -723,6 +780,7 @@ public sealed class TrayIconService : IDisposable
     {
         _cursorDashboardLoginWindow?.Close();
         _cursorSettingsWindow?.Close();
+        _geminiSettingsWindow?.Close();
         _deepSeekSettingsWindow?.Close();
         _gitHubCopilotSettingsWindow?.Close();
         _logWindow?.Close();

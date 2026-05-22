@@ -2166,6 +2166,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         KnownProviders.Cursor,
         KnownProviders.DeepSeek,
+        KnownProviders.Gemini,
         KnownProviders.GitHubCopilot,
     };
 
@@ -2215,6 +2216,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
             IsCliInstalled("cursor-agent"))
         {
             var launchItem = new WpfMenuItem { Header = "Launch Cursor Agent" };
+            launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
+            menu.Items.Add(launchItem);
+        }
+
+        if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase) &&
+            IsCliInstalled("gemini"))
+        {
+            var launchItem = new WpfMenuItem { Header = "Launch Gemini CLI" };
             launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
             menu.Items.Add(launchItem);
         }
