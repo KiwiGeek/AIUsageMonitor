@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.Services;
@@ -8,20 +9,38 @@ public partial class SettingsWindow : FluentDialogWindow
 {
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;
+    private readonly AppSettingsStore _store;
+    private readonly bool _deepSeekEnabledSnapshot;
+    private readonly bool _gitHubCopilotEnabledSnapshot;
 
-    public SettingsWindow(AppSettings settings, AppSettingsService settingsService, AppLogService logService)
+    public SettingsWindow(AppSettings settings, AppSettingsService settingsService, AppLogService logService, AppSettingsStore store)
     {
         InitializeComponent();
         _settingsService = settingsService;
         _logService = logService;
+        _store = store;
+        _deepSeekEnabledSnapshot = store.DeepSeekEnabled;
+        _gitHubCopilotEnabledSnapshot = store.GitHubCopilotEnabled;
+
         Settings = settings.Clone();
         UpdateIntervalTextBox.Text = Settings.UpdateIntervalMinutes.ToString();
         AnthropicProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Anthropic);
         OpenAiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.OpenAI);
         GeminiProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Gemini);
         CursorProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Cursor);
-        DeepSeekProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.DeepSeek);
-        GitHubCopilotProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.GitHubCopilot);
+        DeepSeekProviderEnabledCheckBox.IsChecked = store.DeepSeekEnabled;
+        GitHubCopilotProviderEnabledCheckBox.IsChecked = store.GitHubCopilotEnabled;
+
+        // Checkbox → store (writes to disk immediately so provider settings windows see it live).
+        DeepSeekProviderEnabledCheckBox.Checked   += (_, _) => _store.DeepSeekEnabled = true;
+        DeepSeekProviderEnabledCheckBox.Unchecked += (_, _) => _store.DeepSeekEnabled = false;
+        GitHubCopilotProviderEnabledCheckBox.Checked   += (_, _) => _store.GitHubCopilotEnabled = true;
+        GitHubCopilotProviderEnabledCheckBox.Unchecked += (_, _) => _store.GitHubCopilotEnabled = false;
+
+        // Store → checkboxes (so provider settings windows' changes reflect here live).
+        _store.PropertyChanged += StoreOnPropertyChanged;
+        Closed += (_, _) => _store.PropertyChanged -= StoreOnPropertyChanged;
+
         UpdateCursorModeSummary();
         UpdateDeepSeekApiKeySummary();
         UpdateGitHubCopilotApiKeySummary();
@@ -42,6 +61,14 @@ public partial class SettingsWindow : FluentDialogWindow
     }
 
     public AppSettings Settings { get; private set; }
+
+    private void StoreOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
+            DeepSeekProviderEnabledCheckBox.IsChecked = _store.DeepSeekEnabled;
+        else if (e.PropertyName == nameof(AppSettingsStore.GitHubCopilotEnabled))
+            GitHubCopilotProviderEnabledCheckBox.IsChecked = _store.GitHubCopilotEnabled;
+    }
 
     private void SaveButtonOnClick(object sender, RoutedEventArgs e)
     {
@@ -134,6 +161,8 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void CancelButtonOnClick(object sender, RoutedEventArgs e)
     {
+        _store.DeepSeekEnabled = _deepSeekEnabledSnapshot;
+        _store.GitHubCopilotEnabled = _gitHubCopilotEnabledSnapshot;
         DialogResult = false;
     }
 

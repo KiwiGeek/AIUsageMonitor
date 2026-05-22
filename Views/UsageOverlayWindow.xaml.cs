@@ -17,6 +17,7 @@ using System.Windows.Threading;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.Services;
 using AIUsageMonitor.ViewModels;
+using WpfMenuItem = System.Windows.Controls.MenuItem;
 using WinForms = System.Windows.Forms;
 
 namespace AIUsageMonitor.Views;
@@ -127,9 +128,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     public event EventHandler? SettingsRequested;
 
-    public event EventHandler? DeepSeekRefreshRequested;
+    public event EventHandler<ProviderCardEventArgs>? ProviderRefreshRequested;
 
-    public event EventHandler? DeepSeekSettingsRequested;
+    public event EventHandler<ProviderCardEventArgs>? ProviderSettingsRequested;
+
+    public event EventHandler<ProviderCardEventArgs>? ProviderLaunchCliRequested;
 
     public event EventHandler? DeepSeekLaunchTuiRequested;
 
@@ -2159,6 +2162,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
         card.RenderTransform = new ScaleTransform(1, 1);
     }
 
+    private static readonly HashSet<string> ContextMenuProviders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        KnownProviders.DeepSeek,
+        KnownProviders.GitHubCopilot,
+    };
+
     private void ProviderCard_MouseRightButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is not Border card || card.DataContext is not ProviderUsageCard provider)
@@ -2166,28 +2175,38 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
-        if (!string.Equals(provider.Name, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase))
+        var providerName = provider.ShortName;
+        if (!ContextMenuProviders.Contains(providerName))
         {
             return;
         }
 
         e.Handled = true;
 
+        var args = new ProviderCardEventArgs(providerName);
         var menu = new System.Windows.Controls.ContextMenu();
 
-        var refreshItem = new System.Windows.Controls.MenuItem { Header = "Refresh" };
-        refreshItem.Click += (_, _) => DeepSeekRefreshRequested?.Invoke(this, EventArgs.Empty);
-
-        var settingsItem = new System.Windows.Controls.MenuItem { Header = "Settings" };
-        settingsItem.Click += (_, _) => DeepSeekSettingsRequested?.Invoke(this, EventArgs.Empty);
-
+        var refreshItem = new WpfMenuItem { Header = "Refresh" };
+        refreshItem.Click += (_, _) => ProviderRefreshRequested?.Invoke(this, args);
         menu.Items.Add(refreshItem);
+
+        var settingsItem = new WpfMenuItem { Header = "Settings" };
+        settingsItem.Click += (_, _) => ProviderSettingsRequested?.Invoke(this, args);
         menu.Items.Add(settingsItem);
 
-        if (IsDeepSeekTuiInstalled())
+        if (string.Equals(providerName, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase) &&
+            IsCliInstalled("deepseek"))
         {
-            var launchItem = new System.Windows.Controls.MenuItem { Header = "Launch DeepSeek TUI" };
+            var launchItem = new WpfMenuItem { Header = "Launch DeepSeek TUI" };
             launchItem.Click += (_, _) => DeepSeekLaunchTuiRequested?.Invoke(this, EventArgs.Empty);
+            menu.Items.Add(launchItem);
+        }
+
+        if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase) &&
+            IsCliInstalled("gh"))
+        {
+            var launchItem = new WpfMenuItem { Header = "Launch GitHub Copilot CLI" };
+            launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
             menu.Items.Add(launchItem);
         }
 
@@ -2298,11 +2317,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
         return null;
     }
 
-    private static bool IsDeepSeekTuiInstalled()
+    private static bool IsCliInstalled(string command)
     {
         try
         {
-            using var proc = Process.Start(new ProcessStartInfo("where.exe", "deepseek")
+            using var proc = Process.Start(new ProcessStartInfo("where.exe", command)
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,

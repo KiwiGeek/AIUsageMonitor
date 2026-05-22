@@ -178,6 +178,15 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
         }
     }
 
+    public void RemoveProvider(string providerName)
+    {
+        var card = Providers.FirstOrDefault(p =>
+            string.Equals(p.ShortName, providerName, StringComparison.OrdinalIgnoreCase));
+        if (card is null) return;
+        Providers.Remove(card);
+        OnPropertyChanged(nameof(HasProviders));
+    }
+
     public void RefreshRelativeTimes()
     {
         foreach (var provider in Providers)

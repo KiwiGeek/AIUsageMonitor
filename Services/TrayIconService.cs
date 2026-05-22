@@ -26,12 +26,13 @@ public sealed class TrayIconService : IDisposable
     private readonly DispatcherTimer _relativeTimeTimer = new();
     private readonly DispatcherTimer _windowPlacementSaveTimer = new();
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
+    private readonly AppSettingsStore _settingsStore;
     private AppSettings _settings;
     private UsageOverlayWindow? _overlayWindow;
     private LogWindow? _logWindow;
     private CursorDashboardLoginWindow? _cursorDashboardLoginWindow;
-    private DeepSeekSettingsViewModel? _deepSeekSettingsViewModel;
     private DeepSeekSettingsWindow? _deepSeekSettingsWindow;
+    private GitHubCopilotSettingsWindow? _gitHubCopilotSettingsWindow;
     private CancellationTokenSource? _refreshCts;
     private bool _suppressNextCancellationLog;
     private bool _disposed;
@@ -44,6 +45,9 @@ public sealed class TrayIconService : IDisposable
         _claudeStatusExporterService = new ClaudeStatusExporterService(logService);
         _appIcon = AppIconService.LoadTrayIcon();
         _settings = _settingsService.Load();
+        _settingsStore = new AppSettingsStore(settingsService, logService);
+        _settingsStore.SettingsChanged += StoreOnSettingsChanged;
+        _settingsStore.PropertyChanged += StoreOnPropertyChanged;
         EnsureClaudeStatusExporterIfEnabled();
 
         var menu = new WinForms.ContextMenuStrip();
@@ -85,7 +89,9 @@ public sealed class TrayIconService : IDisposable
         _disposed = true;
         _windowPlacementSaveTimer.Stop();
         SaveOverlayWindowPlacement();
-        _deepSeekSettingsViewModel?.Dispose();
+        _settingsStore.SettingsChanged -= StoreOnSettingsChanged;
+        _settingsStore.PropertyChanged -= StoreOnPropertyChanged;
+        _settingsStore.Dispose();
         _refreshCts?.Cancel();
         _refreshCts = null;
         _refreshTimer.Stop();
@@ -157,8 +163,9 @@ public sealed class TrayIconService : IDisposable
         _overlayWindow.SettingsRequested += (_, _) => ShowSettings();
         _overlayWindow.LogsRequested += (_, _) => ShowLogs();
         _overlayWindow.ExitRequested += (_, _) => Exit();
-        _overlayWindow.DeepSeekRefreshRequested += (_, _) => _ = RefreshSingleProviderAsync(KnownProviders.DeepSeek);
-        _overlayWindow.DeepSeekSettingsRequested += (_, _) => ShowDeepSeekSettings();
+        _overlayWindow.ProviderRefreshRequested += (_, e) => _ = RefreshSingleProviderAsync(e.ProviderName);
+        _overlayWindow.ProviderSettingsRequested += (_, e) => ShowProviderSettings(e.ProviderName);
+        _overlayWindow.ProviderLaunchCliRequested += (_, e) => LaunchProviderCli(e.ProviderName);
         _overlayWindow.DeepSeekLaunchTuiRequested += (_, _) => LaunchDeepSeekTui();
         _overlayWindow.LocationChanged += OverlayWindowOnLocationChanged;
         _overlayWindow.SizeChanged += OverlayWindowOnSizeChanged;
@@ -305,6 +312,40 @@ public sealed class TrayIconService : IDisposable
         _refreshTimer.Start();
     }
 
+    private void StoreOnSettingsChanged(object? sender, EventArgs e)
+    {
+        _settings = _settingsService.Load();
+        _overlayWindow?.ApplySettings(_settings);
+    }
+
+    private void StoreOnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AppSettingsStore.DeepSeekEnabled))
+            HandleProviderEnabledChanged(KnownProviders.DeepSeek, _settingsStore.DeepSeekEnabled);
+        else if (e.PropertyName == nameof(AppSettingsStore.GitHubCopilotEnabled))
+            HandleProviderEnabledChanged(KnownProviders.GitHubCopilot, _settingsStore.GitHubCopilotEnabled);
+    }
+
+    private void HandleProviderEnabledChanged(string providerName, bool enabled)
+    {
+        if (enabled)
+            _ = RefreshSingleProviderAsync(providerName);
+        else
+            _viewModel.RemoveProvider(providerName);
+    }
+
+    private void ShowProviderSettings(string providerName)
+    {
+        if (string.Equals(providerName, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowDeepSeekSettings();
+        }
+        else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowGitHubCopilotSettings();
+        }
+    }
+
     private void ShowDeepSeekSettings()
     {
         if (_deepSeekSettingsWindow is not null)
@@ -313,42 +354,77 @@ public sealed class TrayIconService : IDisposable
             return;
         }
 
-        _deepSeekSettingsViewModel = new DeepSeekSettingsViewModel(_settingsService, _logService);
-        _deepSeekSettingsViewModel.SettingsSaved += DeepSeekSettingsOnSaved;
-
-        _deepSeekSettingsWindow = new DeepSeekSettingsWindow(_deepSeekSettingsViewModel);
+        _deepSeekSettingsWindow = new DeepSeekSettingsWindow(_settingsStore);
 
         if (_overlayWindow?.IsVisible == true)
-        {
             _deepSeekSettingsWindow.Owner = _overlayWindow;
-        }
         else
-        {
             _deepSeekSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        }
 
-        _deepSeekSettingsWindow.Closed += DeepSeekSettingsWindowOnClosed;
+        _deepSeekSettingsWindow.Closed += (_, _) => _deepSeekSettingsWindow = null;
         _deepSeekSettingsWindow.Show();
         _deepSeekSettingsWindow.Activate();
     }
 
-    private void DeepSeekSettingsOnSaved(object? sender, EventArgs e)
+    private void ShowGitHubCopilotSettings()
     {
-        _settings = _settingsService.Load();
-        _overlayWindow?.ApplySettings(_settings);
-        _ = ManualRefreshAsync();
-    }
-
-    private void DeepSeekSettingsWindowOnClosed(object? sender, EventArgs e)
-    {
-        if (_deepSeekSettingsViewModel is not null)
+        if (_gitHubCopilotSettingsWindow is not null)
         {
-            _deepSeekSettingsViewModel.SettingsSaved -= DeepSeekSettingsOnSaved;
-            _deepSeekSettingsViewModel.Dispose();
-            _deepSeekSettingsViewModel = null;
+            _gitHubCopilotSettingsWindow.Activate();
+            return;
         }
 
-        _deepSeekSettingsWindow = null;
+        _gitHubCopilotSettingsWindow = new GitHubCopilotSettingsWindow(_settingsStore);
+
+        if (_overlayWindow?.IsVisible == true)
+            _gitHubCopilotSettingsWindow.Owner = _overlayWindow;
+        else
+            _gitHubCopilotSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        _gitHubCopilotSettingsWindow.Closed += (_, _) => _gitHubCopilotSettingsWindow = null;
+        _gitHubCopilotSettingsWindow.Show();
+        _gitHubCopilotSettingsWindow.Activate();
+    }
+
+    private void LaunchProviderCli(string providerName)
+    {
+        if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
+        {
+            LaunchGitHubCopilotCli();
+        }
+    }
+
+    private void LaunchGitHubCopilotCli()
+    {
+        using var folderDialog = new WinForms.FolderBrowserDialog
+        {
+            Description = "Select workspace directory for GitHub Copilot CLI",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        if (folderDialog.ShowDialog() != WinForms.DialogResult.OK)
+        {
+            return;
+        }
+
+        var workingDirectory = folderDialog.SelectedPath;
+
+        try
+        {
+            var launched =
+                TryLaunchInTerminal("wt.exe", $"-d \"{workingDirectory}\" cmd /k gh copilot", workingDirectory) ||
+                TryLaunchInTerminal("cmd.exe", "/k gh copilot", workingDirectory);
+
+            if (!launched)
+            {
+                _logService.Warning("GitHub Copilot", "Could not find a suitable terminal to launch GitHub Copilot CLI.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService.Warning("GitHub Copilot", $"Could not launch GitHub Copilot CLI: {ex.Message}");
+        }
     }
 
     private void LaunchDeepSeekTui()
@@ -405,18 +481,16 @@ public sealed class TrayIconService : IDisposable
 
     private void ShowSettings()
     {
-        var settingsWindow = new SettingsWindow(_settings, _settingsService, _logService);
+        var settingsWindow = new SettingsWindow(_settings, _settingsService, _logService, _settingsStore);
 
         if (_overlayWindow?.IsVisible == true)
-        {
             settingsWindow.Owner = _overlayWindow;
-        }
         else
-        {
             settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        }
 
-        if (settingsWindow.ShowDialog() != true)
+        var confirmed = settingsWindow.ShowDialog() == true;
+
+        if (!confirmed)
         {
             return;
         }
@@ -430,7 +504,6 @@ public sealed class TrayIconService : IDisposable
         _viewModel.SetAutoRefreshInterval(_settings.UpdateIntervalMinutes);
         _logService.Info("Settings", "Settings saved.");
         UpdateLogSummary();
-
         _ = ManualRefreshAsync();
     }
 
@@ -598,6 +671,7 @@ public sealed class TrayIconService : IDisposable
     {
         _cursorDashboardLoginWindow?.Close();
         _deepSeekSettingsWindow?.Close();
+        _gitHubCopilotSettingsWindow?.Close();
         _logWindow?.Close();
         _overlayWindow?.Close();
         Dispose();

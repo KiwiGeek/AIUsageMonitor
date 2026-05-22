@@ -4,9 +4,9 @@ using AIUsageMonitor.Services;
 
 namespace AIUsageMonitor.Views;
 
-public partial class DeepSeekSettingsWindow : FluentDialogWindow
+public partial class GitHubCopilotSettingsWindow : FluentDialogWindow
 {
-    public DeepSeekSettingsWindow(AppSettingsStore store)
+    public GitHubCopilotSettingsWindow(AppSettingsStore store)
     {
         InitializeComponent();
         DataContext = store;
