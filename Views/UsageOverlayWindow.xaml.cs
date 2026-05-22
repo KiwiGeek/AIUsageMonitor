@@ -11,6 +11,7 @@ using WpfTextBoxBase = System.Windows.Controls.Primitives.TextBoxBase;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.Services;
@@ -109,6 +110,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private readonly AppBarRegistration _appBarRegistration = new();
     private DispatcherTimer? _snapAutoHideTimer;
     private ResizeMode _resizeModeBeforeDrag;
+    private readonly Dictionary<Border, RadialGradientBrush> _cardShimmerBrushCache = new();
     private OverlayEdgeSnap _currentSnapEdge = OverlayEdgeSnap.None;
     private OverlayEdgeSnap _dragPreviewSnapEdge = OverlayEdgeSnap.None;
     private string? _snapMonitorDeviceName;
@@ -2121,4 +2123,115 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         base.OnClosed(e);
     }
+
+    // ── Card hover effects ──────────────────────────────────────────────────
+
+    private static void EnsureCardTransforms(Border card)
+    {
+        if (card.RenderTransform is ScaleTransform) return;
+        card.RenderTransform = new ScaleTransform(1, 1);
+    }
+
+    private void ProviderCard_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is not Border card || DisplayMode == MiniDisplayMode) return;
+
+        EnsureCardTransforms(card);
+        if (card.RenderTransform is ScaleTransform scale)
+        {
+            var dur = TimeSpan.FromMilliseconds(160);
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1.035, dur) { EasingFunction = ease });
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1.035, dur) { EasingFunction = ease });
+        }
+
+        if (card.DataContext is ProviderUsageCard provider && provider.AccentBrush is SolidColorBrush accentSolid)
+        {
+            var c = accentSolid.Color;
+            var glow = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0, c.R, c.G, c.B));
+            card.BorderBrush = glow;
+            glow.BeginAnimation(SolidColorBrush.ColorProperty,
+                new ColorAnimation(System.Windows.Media.Color.FromArgb(200, c.R, c.G, c.B), TimeSpan.FromMilliseconds(160)));
+        }
+
+        var shimmer = FindCardShimmerOverlay(card);
+        shimmer?.BeginAnimation(OpacityProperty, new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(160)));
+    }
+
+    private void ProviderCard_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is not Border card || DisplayMode == MiniDisplayMode) return;
+
+        if (card.RenderTransform is ScaleTransform scale)
+        {
+            var dur = TimeSpan.FromMilliseconds(300);
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1.0, dur) { EasingFunction = ease });
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1.0, dur) { EasingFunction = ease });
+        }
+
+        if (card.ReadLocalValue(BorderBrushProperty) is SolidColorBrush currentGlow)
+        {
+            var c = currentGlow.Color;
+            var anim = new ColorAnimation(System.Windows.Media.Color.FromArgb(0, c.R, c.G, c.B), TimeSpan.FromMilliseconds(300));
+            anim.Completed += (_, _) => card.ClearValue(BorderBrushProperty);
+            currentGlow.BeginAnimation(SolidColorBrush.ColorProperty, anim);
+        }
+
+        var shimmer = FindCardShimmerOverlay(card);
+        shimmer?.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(300)));
+    }
+
+    private void ProviderCard_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is not Border card || DisplayMode == MiniDisplayMode) return;
+
+        EnsureCardTransforms(card);
+        var pos = e.GetPosition(card);
+        var w = card.ActualWidth;
+        var h = card.ActualHeight;
+        if (w <= 0 || h <= 0) return;
+
+        // Shimmer spotlight
+        var shimmer = FindCardShimmerOverlay(card);
+        if (shimmer is null) return;
+
+        if (!_cardShimmerBrushCache.TryGetValue(card, out var brush))
+        {
+            brush = new RadialGradientBrush();
+            brush.RadiusX = 0.7;
+            brush.RadiusY = 0.7;
+            brush.GradientStops.Add(new GradientStop(Colors.Transparent, 0.0));
+            brush.GradientStops.Add(new GradientStop(Colors.Transparent, 0.5));
+            brush.GradientStops.Add(new GradientStop(Colors.Transparent, 1.0));
+            _cardShimmerBrushCache[card] = brush;
+            shimmer.Background = brush;
+        }
+
+        var ac = card.DataContext is ProviderUsageCard p && p.AccentBrush is SolidColorBrush ab
+            ? ab.Color
+            : System.Windows.Media.Colors.White;
+        var relX = pos.X / w;
+        var relY = pos.Y / h;
+
+        brush.GradientOrigin = new System.Windows.Point(relX, relY);
+        brush.Center         = new System.Windows.Point(relX, relY);
+        brush.GradientStops[0].Color = System.Windows.Media.Color.FromArgb(38, ac.R, ac.G, ac.B);
+        brush.GradientStops[1].Color = System.Windows.Media.Color.FromArgb(12, ac.R, ac.G, ac.B);
+        brush.GradientStops[2].Color = System.Windows.Media.Color.FromArgb(0,  ac.R, ac.G, ac.B);
+    }
+
+    private static Border? FindCardShimmerOverlay(DependencyObject parent)
+    {
+        var n = VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < n; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is Border b && "ShimmerOverlay".Equals(b.Tag)) return b;
+            var found = FindCardShimmerOverlay(child);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
 }
