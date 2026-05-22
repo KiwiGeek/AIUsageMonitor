@@ -5,7 +5,7 @@ using AIUsageMonitor.Models;
 
 namespace AIUsageMonitor.Views;
 
-public partial class DeepSeekSetupWindow : FluentAppWindow
+public partial class DeepSeekSetupWindow : FluentDialogWindow
 {
     public DeepSeekSetupWindow(AppSettings settings)
     {

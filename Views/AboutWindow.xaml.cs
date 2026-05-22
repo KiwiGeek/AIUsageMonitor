@@ -5,7 +5,7 @@ using AIUsageMonitor.Services;
 
 namespace AIUsageMonitor.Views;
 
-public partial class AboutWindow : FluentAppWindow
+public partial class AboutWindow : FluentDialogWindow
 {
     public AboutWindow()
     {

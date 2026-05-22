@@ -1,4 +1,4 @@
-<local:FluentAppWindow x:Class="AIUsageMonitor.Views.AboutWindow"
+<local:FluentDialogWindow x:Class="AIUsageMonitor.Views.AboutWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:local="clr-namespace:AIUsageMonitor.Views"
@@ -25,7 +25,9 @@
         </Grid.RowDefinitions>
 
         <ui:TitleBar Title="About"
-                     Grid.Row="0" />
+                     Grid.Row="0"
+                     ShowMaximize="False"
+                     ShowMinimize="False" />
 
         <Grid Grid.Row="1"
               Margin="24,8,24,24">
@@ -116,4 +118,4 @@
                        Click="CloseButtonOnClick" />
         </Grid>
     </Grid>
-</local:FluentAppWindow>
+</local:FluentDialogWindow>

@@ -3,7 +3,7 @@ using System.Windows;
 
 namespace AIUsageMonitor.Views;
 
-public partial class ProviderSetupInfoWindow : FluentAppWindow
+public partial class ProviderSetupInfoWindow : FluentDialogWindow
 {
     private readonly string _setupUrl;
 

@@ -1,4 +1,4 @@
-<local:FluentAppWindow x:Class="AIUsageMonitor.Views.ProviderSetupInfoWindow"
+<local:FluentDialogWindow x:Class="AIUsageMonitor.Views.ProviderSetupInfoWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:local="clr-namespace:AIUsageMonitor.Views"
@@ -24,7 +24,9 @@
         </Grid.RowDefinitions>
 
         <ui:TitleBar x:Name="DialogTitleBar"
-                     Grid.Row="0" />
+                     Grid.Row="0"
+                     ShowMaximize="False"
+                     ShowMinimize="False" />
 
         <Grid Grid.Row="1"
               Margin="24,8,24,24">
@@ -63,4 +65,4 @@
             </StackPanel>
         </Grid>
     </Grid>
-</local:FluentAppWindow>
+</local:FluentDialogWindow>
