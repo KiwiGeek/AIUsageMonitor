@@ -126,6 +126,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     public event EventHandler? SettingsRequested;
 
+    public event EventHandler? DeepSeekPeakOverrideRequested;
+
     public event EventHandler? LogsRequested;
 
     public event EventHandler? ExitRequested;
@@ -2150,6 +2152,22 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         if (card.RenderTransform is ScaleTransform) return;
         card.RenderTransform = new ScaleTransform(1, 1);
+    }
+
+    private void ProviderCard_MouseRightButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not Border card || card.DataContext is not ProviderUsageCard provider)
+        {
+            return;
+        }
+
+        if (!string.Equals(provider.Name, KnownProviders.DeepSeek, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        DeepSeekPeakOverrideRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void ProviderCard_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)

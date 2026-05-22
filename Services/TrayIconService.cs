@@ -153,6 +153,7 @@ public sealed class TrayIconService : IDisposable
         _overlayWindow.SettingsRequested += (_, _) => ShowSettings();
         _overlayWindow.LogsRequested += (_, _) => ShowLogs();
         _overlayWindow.ExitRequested += (_, _) => Exit();
+        _overlayWindow.DeepSeekPeakOverrideRequested += (_, _) => ShowDeepSeekPeakOverride();
         _overlayWindow.LocationChanged += OverlayWindowOnLocationChanged;
         _overlayWindow.SizeChanged += OverlayWindowOnSizeChanged;
         _overlayWindow.IsVisibleChanged += OverlayWindowOnIsVisibleChanged;
@@ -262,6 +263,29 @@ public sealed class TrayIconService : IDisposable
     {
         _refreshTimer.Stop();
         _refreshTimer.Start();
+    }
+
+    private void ShowDeepSeekPeakOverride()
+    {
+        var dialog = new DeepSeekPeakWindow(_settings);
+
+        if (_overlayWindow?.IsVisible == true)
+        {
+            dialog.Owner = _overlayWindow;
+        }
+        else
+        {
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _settings.DeepSeekLastBalances = dialog.Settings.DeepSeekLastBalances;
+        _settingsService.Save(_settings);
+        _ = ManualRefreshAsync();
     }
 
     private void ShowSettings()

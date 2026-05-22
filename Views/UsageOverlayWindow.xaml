@@ -379,7 +379,8 @@
                                             RenderTransformOrigin="0.5,0.5"
                                             MouseEnter="ProviderCard_MouseEnter"
                                             MouseLeave="ProviderCard_MouseLeave"
-                                            MouseMove="ProviderCard_MouseMove">
+                                            MouseMove="ProviderCard_MouseMove"
+                                            MouseRightButtonUp="ProviderCard_MouseRightButtonUp">
                                         <Border Style="{StaticResource ProviderCardInnerStyle}">
                                         <Grid>
                                             <Image HorizontalAlignment="Right"
