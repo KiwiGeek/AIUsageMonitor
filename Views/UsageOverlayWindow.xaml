@@ -62,25 +62,67 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="ProviderCardFullContentStyle"
+               TargetType="{x:Type Grid}"
+               BasedOn="{StaticResource FullOnlyElementStyle}">
+            <Setter Property="Margin" Value="18" />
+        </Style>
+
+        <Style x:Key="ProviderCardCompactContentStyle"
+               TargetType="{x:Type StackPanel}"
+               BasedOn="{StaticResource CompactOnlyElementStyle}">
+            <Setter Property="Margin" Value="8" />
+        </Style>
+
+        <Style x:Key="ProviderCardMiniContentStyle"
+               TargetType="{x:Type StackPanel}"
+               BasedOn="{StaticResource MiniOnlyElementStyle}">
+            <Setter Property="Margin" Value="6,4" />
+        </Style>
+
         <Style x:Key="ProviderCardStyle" TargetType="{x:Type Border}">
             <Setter Property="Margin" Value="5" />
-            <Setter Property="Padding" Value="18" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="MinHeight" Value="190" />
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="{DynamicResource ControlElevationBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="UseLayoutRounding" Value="True" />
+            <Setter Property="RenderOptions.EdgeMode" Value="Aliased" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
                     <Setter Property="Margin" Value="4" />
-                    <Setter Property="Padding" Value="8" />
                     <Setter Property="MinHeight" Value="92" />
+                    <Setter Property="CornerRadius" Value="6" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
                     <Setter Property="Margin" Value="3,2" />
-                    <Setter Property="Padding" Value="6,4" />
                     <Setter Property="MinHeight" Value="0" />
+                    <Setter Property="CornerRadius" Value="4" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Inner fill + waifu clip sit inside the 1px border so the stroke is not clipped away at corners. -->
+        <Style x:Key="ProviderCardInnerStyle" TargetType="{x:Type Border}">
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="UseLayoutRounding" Value="True" />
+            <Setter Property="local:RoundedCornerClip.ClipRadius" Value="7" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
+                    <Setter Property="CornerRadius" Value="5" />
+                    <Setter Property="local:RoundedCornerClip.ClipRadius" Value="5" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
+                    <Setter Property="CornerRadius" Value="3" />
+                    <Setter Property="local:RoundedCornerClip.ClipRadius" Value="3" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -331,14 +373,15 @@
                                     <Border HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Style="{StaticResource ProviderCardStyle}">
+                                        <Border Style="{StaticResource ProviderCardInnerStyle}">
                                         <Grid>
-                                            <Image Margin="-12"
-                                                   HorizontalAlignment="Right"
-                                                   VerticalAlignment="Center"
+                                            <Image HorizontalAlignment="Right"
+                                                   VerticalAlignment="Stretch"
                                                    IsHitTestVisible="False"
+                                                   Opacity="{Binding DataContext.WaifuBackgroundOpacity, RelativeSource={RelativeSource AncestorType=Window}}"
                                                    Source="{Binding BackgroundImage}"
                                                    Stretch="UniformToFill" />
-                                            <Grid Style="{StaticResource FullOnlyElementStyle}">
+                                            <Grid Style="{StaticResource ProviderCardFullContentStyle}">
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="Auto" />
@@ -441,7 +484,7 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <StackPanel Style="{StaticResource CompactOnlyElementStyle}">
+                                            <StackPanel Style="{StaticResource ProviderCardCompactContentStyle}">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -506,7 +549,7 @@
                                                 </ItemsControl>
                                             </StackPanel>
 
-                                            <StackPanel Style="{StaticResource MiniOnlyElementStyle}">
+                                            <StackPanel Style="{StaticResource ProviderCardMiniContentStyle}">
                                                 <TextBlock FontSize="12"
                                                            FontWeight="SemiBold"
                                                            Foreground="#F3F4F6"
@@ -519,6 +562,7 @@
                                                              Value="{Binding PrimaryRemainingPercent, Mode=OneWay}" />
                                             </StackPanel>
                                         </Grid>
+                                        </Border>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

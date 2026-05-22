@@ -13,6 +13,7 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
     private string _autoRefreshText = "Auto refresh every 20 minutes";
     private string _logSummaryText = "No recent errors";
     private string _errorMessage = string.Empty;
+    private double _waifuBackgroundOpacity = 1;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -59,6 +60,26 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
     public bool HasProviders => Providers.Count > 0;
+
+    public double WaifuBackgroundOpacity
+    {
+        get => _waifuBackgroundOpacity;
+        private set
+        {
+            var normalizedOpacity = Math.Clamp(value, 0, 1);
+            SetField(ref _waifuBackgroundOpacity, normalizedOpacity);
+        }
+    }
+
+    public void ApplyWaifuAppearance(bool waifuEnabled, double waifuOpacity)
+    {
+        WaifuBackgroundOpacity = waifuEnabled ? waifuOpacity : 1;
+
+        foreach (var provider in Providers)
+        {
+            provider.ApplyWaifuAppearance(waifuEnabled);
+        }
+    }
 
     public void ApplySnapshot(UsageSnapshot snapshot, string dataPath, bool waifuEnabled = false)
     {

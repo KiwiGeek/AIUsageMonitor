@@ -13,36 +13,55 @@ internal static class UsageBrushes
     private static readonly MediaBrush GitHubCopilotAccent = FrozenBrush("#8957E5");
     private static readonly MediaBrush DefaultAccent = FrozenBrush("#E5E7EB");
 
-    public static MediaBrush ProviderAccent(string providerName)
+    // Sampled from waifu card art (dominant saturated accents).
+    private static readonly MediaBrush AnthropicWaifuAccent = FrozenBrush("#F07818");
+    private static readonly MediaBrush OpenAiWaifuAccent = FrozenBrush("#4986E1");
+    private static readonly MediaBrush GeminiWaifuAccent = FrozenBrush("#0CB0F8");
+    private static readonly MediaBrush CursorWaifuAccent = FrozenBrush("#A8E04A");
+    private static readonly MediaBrush DeepSeekWaifuAccent = FrozenBrush("#F01811");
+    private static readonly MediaBrush GitHubCopilotWaifuAccent = FrozenBrush("#00D7FF");
+
+    public static MediaBrush ProviderAccent(string providerName) =>
+        ResolveProviderBrush(providerName, useWaifuPalette: false);
+
+    public static MediaBrush ProviderWaifuAccent(string providerName) =>
+        ResolveProviderBrush(providerName, useWaifuPalette: true);
+
+    private static MediaBrush ResolveProviderBrush(string providerName, bool useWaifuPalette)
     {
         var normalized = providerName.Trim().ToLowerInvariant();
 
         if (normalized.StartsWith("anthropic"))
         {
-            return AnthropicAccent;
+            return useWaifuPalette ? AnthropicWaifuAccent : AnthropicAccent;
         }
 
         if (normalized.StartsWith("openai"))
         {
-            return OpenAiAccent;
+            return useWaifuPalette ? OpenAiWaifuAccent : OpenAiAccent;
         }
 
         if (normalized.StartsWith("gemini"))
         {
-            return GeminiAccent;
+            return useWaifuPalette ? GeminiWaifuAccent : GeminiAccent;
         }
 
         if (normalized.StartsWith("cursor"))
         {
-            return CursorAccent;
+            return useWaifuPalette ? CursorWaifuAccent : CursorAccent;
         }
 
         if (normalized.StartsWith("deepseek"))
         {
-            return DeepSeekAccent;
+            return useWaifuPalette ? DeepSeekWaifuAccent : DeepSeekAccent;
         }
 
-        return normalized.StartsWith("github") ? GitHubCopilotAccent : DefaultAccent;
+        if (normalized.StartsWith("github"))
+        {
+            return useWaifuPalette ? GitHubCopilotWaifuAccent : GitHubCopilotAccent;
+        }
+
+        return DefaultAccent;
     }
 
     public static MediaBrush FrozenBrush(string hex)

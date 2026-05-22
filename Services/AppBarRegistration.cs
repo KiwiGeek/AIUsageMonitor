@@ -31,24 +31,26 @@ internal sealed class AppBarRegistration : IDisposable
             return false;
         }
 
+        if (!WindowBoundsHelper.TryGetScreenBoundsPixels(window, out var barBounds))
+        {
+            barBounds = intendedBoundsPixels;
+        }
+
         var data = new NativeMethods.AppBarData
         {
             cbSize = Marshal.SizeOf<NativeMethods.AppBarData>(),
             hWnd = handle,
             uEdge = appBarEdge.Value,
-            rc = ToNativeRect(intendedBoundsPixels)
+            rc = ToNativeRect(barBounds)
         };
 
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmNew, ref data);
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmQueryPos, ref data);
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmSetPos, ref data);
 
-        var shellBounds = FromNativeRect(data.rc);
-        var mergedBounds = MergeAppBarBounds(snapEdge, intendedBoundsPixels, shellBounds);
-        data.rc = ToNativeRect(mergedBounds);
-        _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmSetPos, ref data);
-
-        WindowBoundsHelper.SetBoundsFromScreenPixels(window, mergedBounds);
+        // Do not reposition the HWND here. The overlay is already docked; AppBar only
+        // reserves desktop space. Moving the window to shell-adjusted coordinates offsets
+        // it by the reserved width/height (past the strip into the new work area).
         _registeredWindowHandle = handle;
         return true;
     }
@@ -87,34 +89,6 @@ internal sealed class AppBarRegistration : IDisposable
         }
     }
 
-    private static Rect MergeAppBarBounds(OverlayEdgeSnap snapEdge, Rect intended, Rect shellAdjusted)
-    {
-        return snapEdge switch
-        {
-            OverlayEdgeSnap.Left => new Rect(
-                shellAdjusted.Left,
-                shellAdjusted.Top,
-                intended.Width,
-                shellAdjusted.Height),
-            OverlayEdgeSnap.Right => new Rect(
-                shellAdjusted.Right - intended.Width,
-                shellAdjusted.Top,
-                intended.Width,
-                shellAdjusted.Height),
-            OverlayEdgeSnap.Top => new Rect(
-                shellAdjusted.Left,
-                shellAdjusted.Top,
-                shellAdjusted.Width,
-                intended.Height),
-            OverlayEdgeSnap.Bottom => new Rect(
-                shellAdjusted.Left,
-                shellAdjusted.Bottom - intended.Height,
-                shellAdjusted.Width,
-                intended.Height),
-            _ => intended
-        };
-    }
-
     private static int? ToAppBarEdge(OverlayEdgeSnap snapEdge)
     {
         return snapEdge switch
@@ -138,8 +112,4 @@ internal sealed class AppBarRegistration : IDisposable
         };
     }
 
-    private static Rect FromNativeRect(NativeMethods.RectNative rect)
-    {
-        return new Rect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
-    }
 }

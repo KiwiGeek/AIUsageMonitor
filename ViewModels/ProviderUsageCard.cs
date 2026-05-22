@@ -8,6 +8,9 @@ namespace AIUsageMonitor.ViewModels;
 public sealed class ProviderUsageCard : INotifyPropertyChanged
 {
     private bool _isChecking;
+    private bool _waifuEnabled;
+    private MediaBrush _accentBrush = UsageBrushes.ProviderAccent(string.Empty);
+    private string? _backgroundImage;
     private string _checkedText = string.Empty;
     private readonly string _summaryText;
 
@@ -19,17 +22,9 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
         StatusMessage = usage.StatusMessage;
         IsUnavailable = usage.IsUnavailable;
         LastCheckedAt = usage.LastCheckedAt;
-        AccentBrush = UsageBrushes.ProviderAccent(usage.Name);
-        BackgroundImage = waifuEnabled ? ShortName switch
-        {
-            "Anthropic"      => "pack://application:,,,/Assets/claude-girl.png",
-            "Cursor"         => "pack://application:,,,/Assets/cursor-girl.png",
-            "Gemini"         => "pack://application:,,,/Assets/gemini-girl.png",
-            "OpenAI"         => "pack://application:,,,/Assets/codex-girl.png",
-            "DeepSeek"       => "pack://application:,,,/Assets/deepseek-girl.png",
-            "GitHub Copilot" => "pack://application:,,,/Assets/copilot-girl.png",
-            _                => null
-        } : null;
+        _waifuEnabled = waifuEnabled;
+        AccentBrush = ResolveAccentBrush(waifuEnabled);
+        BackgroundImage = ResolveBackgroundImage(waifuEnabled);
         Windows = usage.Windows.Select(window => new UsageWindowDisplay(window)).ToList();
         // Use the minimum remaining percent across non-exhausted windows so that a single
         // exhausted bucket (e.g. Gemini Pro at 0%) doesn't mark the whole provider as
@@ -93,9 +88,29 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
 
     public MediaBrush SummaryProgressBrush { get; }
 
-    public MediaBrush AccentBrush { get; }
+    public MediaBrush AccentBrush
+    {
+        get => _accentBrush;
+        private set => SetField(ref _accentBrush, value);
+    }
 
-    public string? BackgroundImage { get; }
+    public string? BackgroundImage
+    {
+        get => _backgroundImage;
+        private set => SetField(ref _backgroundImage, value);
+    }
+
+    public void ApplyWaifuAppearance(bool waifuEnabled)
+    {
+        if (_waifuEnabled == waifuEnabled)
+        {
+            return;
+        }
+
+        _waifuEnabled = waifuEnabled;
+        AccentBrush = ResolveAccentBrush(waifuEnabled);
+        BackgroundImage = ResolveBackgroundImage(waifuEnabled);
+    }
 
     public IReadOnlyList<UsageWindowDisplay> Windows { get; }
 
@@ -148,6 +163,23 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         return true;
     }
+
+    private MediaBrush ResolveAccentBrush(bool waifuEnabled) =>
+        waifuEnabled
+            ? UsageBrushes.ProviderWaifuAccent(ShortName)
+            : UsageBrushes.ProviderAccent(ShortName);
+
+    private string? ResolveBackgroundImage(bool waifuEnabled) =>
+        waifuEnabled ? ShortName switch
+        {
+            "Anthropic"      => "pack://application:,,,/Assets/claude-girl.png",
+            "Cursor"         => "pack://application:,,,/Assets/cursor-girl.png",
+            "Gemini"         => "pack://application:,,,/Assets/gemini-girl.png",
+            "OpenAI"         => "pack://application:,,,/Assets/codex-girl.png",
+            "DeepSeek"       => "pack://application:,,,/Assets/deepseek-girl.png",
+            "GitHub Copilot" => "pack://application:,,,/Assets/copilot-girl.png",
+            _                => null
+        } : null;
 
     private static string FormatDisplayName(string providerName, string planName)
     {

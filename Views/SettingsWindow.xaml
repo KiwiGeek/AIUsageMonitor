@@ -322,12 +322,40 @@
 
                     <StackPanel Margin="0,16,0,0">
                         <CheckBox x:Name="WaifuSquadCheckBox"
+                                  Checked="WaifuSquadOptionOnChanged"
                                   Content="Waifu Squad"
-                                  FontSize="13" />
+                                  FontSize="13"
+                                  Unchecked="WaifuSquadOptionOnChanged" />
                         <TextBlock Margin="24,4,0,0"
                                    FontSize="12"
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                    Text="Show background artwork on provider cards." />
+                        <StackPanel x:Name="WaifuOpacityPanel"
+                                    Margin="24,10,0,0"
+                                    Visibility="Collapsed">
+                            <TextBlock FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       Text="Background opacity" />
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="WaifuOpacitySlider"
+                                        Grid.Column="0"
+                                        Maximum="100"
+                                        Minimum="5"
+                                        TickFrequency="5" />
+                                <TextBlock x:Name="WaifuOpacityValueTextBlock"
+                                           Grid.Column="1"
+                                           Width="44"
+                                           Margin="10,0,0,0"
+                                           VerticalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Text="40%" />
+                            </Grid>
+                        </StackPanel>
                     </StackPanel>
 
                     <TextBlock x:Name="ValidationTextBlock"

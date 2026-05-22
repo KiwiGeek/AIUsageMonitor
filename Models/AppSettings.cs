@@ -6,6 +6,9 @@ public sealed class AppSettings
     public const int MinimumUpdateIntervalMinutes = 1;
     public const int MaximumUpdateIntervalMinutes = 1440;
     public const double DefaultCursorIncludedBudgetDollars = 20;
+    public const double DefaultWaifuSquadOpacity = 0.4;
+    public const double MinimumWaifuSquadOpacity = 0.05;
+    public const double MaximumWaifuSquadOpacity = 1.0;
     public const string CursorUsageModePersonal = "PersonalSubscription";
     public const string CursorUsageModeTeamsApiKey = "TeamsApiKey";
 
@@ -30,6 +33,8 @@ public sealed class AppSettings
     public string GitHubCopilotApiKey { get; set; } = string.Empty;
 
     public bool WaifuSquadEnabled { get; set; }
+
+    public double WaifuSquadOpacity { get; set; } = DefaultWaifuSquadOpacity;
 
     public bool ClaudeStatusExporterEnabled { get; set; } = true;
 
@@ -58,6 +63,7 @@ public sealed class AppSettings
             DeepSeekLastBalances = new Dictionary<string, decimal>(DeepSeekLastBalances),
             GitHubCopilotApiKey = GitHubCopilotApiKey,
             WaifuSquadEnabled = WaifuSquadEnabled,
+            WaifuSquadOpacity = WaifuSquadOpacity,
             ClaudeStatusExporterEnabled = ClaudeStatusExporterEnabled,
             AutoRunAtLoginEnabled = AutoRunAtLoginEnabled,
             OverlaySnapToScreenEnabled = OverlaySnapToScreenEnabled,
@@ -100,6 +106,14 @@ public sealed class AppSettings
         if (OverlaySnapAutoHideWhenSnappedEnabled && OverlaySnapReserveScreenSpaceEnabled)
         {
             OverlaySnapReserveScreenSpaceEnabled = false;
+        }
+
+        if (WaifuSquadOpacity < MinimumWaifuSquadOpacity ||
+            WaifuSquadOpacity > MaximumWaifuSquadOpacity ||
+            double.IsNaN(WaifuSquadOpacity) ||
+            double.IsInfinity(WaifuSquadOpacity))
+        {
+            WaifuSquadOpacity = DefaultWaifuSquadOpacity;
         }
 
         OverlayWindowPlacement ??= new OverlayWindowPlacement();

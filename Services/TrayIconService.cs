@@ -359,6 +359,7 @@ public sealed class TrayIconService : IDisposable
             }
 
             _viewModel.ApplySnapshot(snapshot, snapshot.Source, _settings.WaifuSquadEnabled);
+            _viewModel.ApplyWaifuAppearance(_settings.WaifuSquadEnabled, _settings.WaifuSquadOpacity);
             UpdateLogSummary();
         }
         catch (OperationCanceledException ex)

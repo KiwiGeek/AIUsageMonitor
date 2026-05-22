@@ -105,6 +105,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private bool _snapAutoHideWhenSnapped;
     private bool _isSnapAutoHideExpanded = true;
     private Rect _snappedFullBoundsPixels = Rect.Empty;
+    private Rect? _appBarDockAnchorBoundsPixels;
     private readonly AppBarRegistration _appBarRegistration = new();
     private DispatcherTimer? _snapAutoHideTimer;
     private ResizeMode _resizeModeBeforeDrag;
@@ -126,6 +127,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         Loaded += WindowOnLoaded;
         SourceInitialized += WindowOnSourceInitialized;
         SizeChanged += WindowOnSizeChanged;
+        MouseEnter += WindowOnMouseEnter;
         DataContextChanged += WindowOnDataContextChanged;
         PreviewMouseLeftButtonUp += WindowOnPreviewMouseLeftButtonUp;
         PreviewMouseMove += WindowOnPreviewMouseMove;
@@ -157,6 +159,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
         else if (_currentSnapEdge != OverlayEdgeSnap.None && !_isManualDragging)
         {
             RefreshSnappedScreenIntegration();
+        }
+
+        if (DataContext is UsageOverlayViewModel viewModel)
+        {
+            viewModel.ApplyWaifuAppearance(settings.WaifuSquadEnabled, settings.WaifuSquadOpacity);
         }
     }
 
@@ -471,11 +478,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private void WindowOnLoaded(object sender, RoutedEventArgs e)
     {
+        WindowRoundedCornersService.Apply(this);
         QueueResponsiveLayoutUpdate();
     }
 
     private void WindowOnSourceInitialized(object? sender, EventArgs e)
     {
+        WindowRoundedCornersService.Apply(this);
+
         if (_snapToScreenEnabled && _currentSnapEdge != OverlayEdgeSnap.None)
         {
             var screen = WindowBoundsHelper.GetScreenForWindow(this);
@@ -486,8 +496,20 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
     }
 
+    private void WindowOnMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_snapAutoHideWhenSnapped &&
+            _currentSnapEdge != OverlayEdgeSnap.None &&
+            !_isSnapAutoHideExpanded)
+        {
+            SetSnapAutoHideExpanded(true);
+        }
+    }
+
     private void WindowOnSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        WindowRoundedCornersService.Apply(this);
+
         if (_isManualDragging)
         {
             if (ShouldRunResponsiveLayout())
@@ -518,9 +540,30 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
+        if (!_snapAutoHideWhenSnapped || _isSnapAutoHideExpanded)
+        {
+            ReanchorSnappedStripToWorkArea();
+        }
+
+        if (_snapAutoHideWhenSnapped && _isSnapAutoHideExpanded &&
+            WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var expandedBounds))
+        {
+            var screen = OverlayEdgeSnapService.FindScreenByDeviceName(_snapMonitorDeviceName)
+                ?? WindowBoundsHelper.GetScreenForWindow(this);
+            if (screen is not null)
+            {
+                _snappedFullBoundsPixels = GetSnappedDockBoundsPixels(screen, expandedBounds);
+            }
+        }
+
         if (_snapReserveScreenSpace && !_snapAutoHideWhenSnapped)
         {
             TryRefreshSnappedAppBar();
+        }
+
+        if (_snapAutoHideWhenSnapped)
+        {
+            EvaluateSnapAutoHide();
         }
 
         var resizedAlongFreeAxis = _currentSnapEdge switch
@@ -641,6 +684,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
         CardSlotWidth = layout.CardSlotWidth;
         CardSlotHeight = layout.CardSlotHeight;
         ApplyProvidersListLayout(layout);
+        Dispatcher.BeginInvoke(
+            () => WindowRoundedCornersService.Apply(this),
+            DispatcherPriority.Loaded);
     }
 
     private void ApplyProvidersListLayout(ResponsiveLayout layout)
@@ -1051,19 +1097,17 @@ public partial class UsageOverlayWindow : FluentAppWindow
         ProvidersList.Width = cardWidth;
         ProvidersList.Height = (rows * cardHeight) + (rows * marginHeight);
 
-        if (GetVerticalStripSnapEdge() == OverlayEdgeSnap.Right)
-        {
-            ReanchorRightStripToWorkArea();
-        }
+        ReanchorVerticalStripToWorkArea();
     }
 
     /// <summary>
-    /// Right strip snap sizes position from the pre-expand width; widening cards grows the window to the right.
-    /// Re-pin the HWND so its right edge stays on the monitor work area.
+    /// Left/right strip snap can drift from the work-area edge after card expansion or user resize.
+    /// Re-pin the HWND to the dock edge on the snap monitor.
     /// </summary>
-    private void ReanchorRightStripToWorkArea()
+    private void ReanchorVerticalStripToWorkArea()
     {
-        if (GetVerticalStripSnapEdge() != OverlayEdgeSnap.Right)
+        var snapEdge = GetVerticalStripSnapEdge();
+        if (snapEdge is not (OverlayEdgeSnap.Left or OverlayEdgeSnap.Right))
         {
             return;
         }
@@ -1076,17 +1120,39 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
-        var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
-        var targetLeft = workArea.Right - currentBounds.Width;
-        if (Math.Abs(targetLeft - currentBounds.Left) < 0.5 &&
-            Math.Abs(currentBounds.Top - workArea.Top) < 0.5 &&
-            Math.Abs(currentBounds.Height - workArea.Height) < 0.5)
+        var docked = GetSnappedDockBoundsPixels(screen, currentBounds);
+        if (RectsNearlyEqual(currentBounds, docked))
         {
             return;
         }
 
-        ApplyBoundsPixels(new Rect(targetLeft, workArea.Top, currentBounds.Width, workArea.Height));
+        ApplyBoundsPixels(docked);
     }
+
+    private void ReanchorSnappedStripToWorkArea()
+    {
+        if (IsVerticalStripSnap())
+        {
+            ReanchorVerticalStripToWorkArea();
+        }
+        else if (IsHorizontalStripSnap())
+        {
+            ReanchorHorizontalStripToWorkArea();
+        }
+    }
+
+    private static bool RectsNearlyEqual(Rect a, Rect b) =>
+        Math.Abs(a.Left - b.Left) < 0.5 &&
+        Math.Abs(a.Top - b.Top) < 0.5 &&
+        Math.Abs(a.Width - b.Width) < 0.5 &&
+        Math.Abs(a.Height - b.Height) < 0.5;
+
+    private Rect GetSnappedDockBoundsPixels(WinForms.Screen screen, Rect currentBoundsPixels) =>
+        OverlayEdgeSnapService.GetSnappedDockBoundsPixels(
+            _currentSnapEdge,
+            screen,
+            currentBoundsPixels,
+            _appBarDockAnchorBoundsPixels);
 
     /// <summary>
     /// Top/bottom dock uses one compact row; stretch cards to the measured host after layout.
@@ -1203,20 +1269,13 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
-        var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
-        var targetTop = snapEdge == OverlayEdgeSnap.Top
-            ? workArea.Top
-            : workArea.Bottom - currentBounds.Height;
-        var targetLeft = workArea.Left;
-
-        if (Math.Abs(targetTop - currentBounds.Top) < 0.5 &&
-            Math.Abs(targetLeft - currentBounds.Left) < 0.5 &&
-            Math.Abs(currentBounds.Width - workArea.Width) < 0.5)
+        var docked = GetSnappedDockBoundsPixels(screen, currentBounds);
+        if (RectsNearlyEqual(currentBounds, docked))
         {
             return;
         }
 
-        ApplyBoundsPixels(new Rect(targetLeft, targetTop, workArea.Width, currentBounds.Height));
+        ApplyBoundsPixels(docked);
     }
 
     private static bool IsBetterCardLayout(
@@ -1626,11 +1685,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
             if (WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var visibleBounds))
             {
-                _snappedFullBoundsPixels = visibleBounds;
+                _snappedFullBoundsPixels = GetSnappedDockBoundsPixels(screen, visibleBounds);
             }
             else
             {
-                _snappedFullBoundsPixels = boundsPixels;
+                _snappedFullBoundsPixels = GetSnappedDockBoundsPixels(screen, boundsPixels);
             }
 
             ApplySnapScreenIntegration(snapEdge, screen);
@@ -1661,18 +1720,25 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         if (_snapReserveScreenSpace)
         {
-            var appBarBounds = OverlayEdgeSnapService.GetSnappedAppBarBoundsPixels(
-                snapEdge,
-                screen,
-                _snappedFullBoundsPixels);
-            OverlayEdgeSnapService.ApplySnap(this, snapEdge, screen, appBarBounds, _appBarRegistration);
-            if (WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var adjustedBounds))
+            if (!WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var appBarBounds))
             {
-                _snappedFullBoundsPixels = adjustedBounds;
+                appBarBounds = _snappedFullBoundsPixels;
             }
+
+            _appBarDockAnchorBoundsPixels = appBarBounds;
+            OverlayEdgeSnapService.ApplySnap(this, snapEdge, screen, appBarBounds, _appBarRegistration);
+
+            if (WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var adjustedBounds) &&
+                !RectsNearlyEqual(adjustedBounds, appBarBounds))
+            {
+                ApplyBoundsPixels(appBarBounds);
+            }
+
+            _snappedFullBoundsPixels = appBarBounds;
         }
         else
         {
+            _appBarDockAnchorBoundsPixels = null;
             _appBarRegistration.Unregister(this);
         }
     }
@@ -1681,6 +1747,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         StopSnapAutoHide();
         _appBarRegistration.Unregister(this);
+        _appBarDockAnchorBoundsPixels = null;
         _snappedFullBoundsPixels = Rect.Empty;
         _isSnapAutoHideExpanded = true;
     }
@@ -1727,7 +1794,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
             OverlayEdgeSnapService.ApplySnap(this, _currentSnapEdge, screen, appBarBounds, _appBarRegistration);
             if (WindowBoundsHelper.TryGetScreenBoundsPixels(this, out var adjustedBounds))
             {
-                _snappedFullBoundsPixels = adjustedBounds;
+                _snappedFullBoundsPixels = GetSnappedDockBoundsPixels(screen, adjustedBounds);
             }
         }
         finally
@@ -1791,29 +1858,35 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
 
         var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
+        var dockedBounds = GetSnappedDockBoundsPixels(screen, _snappedFullBoundsPixels);
         var mouse = WinForms.Control.MousePosition;
         var mousePoint = new System.Drawing.Point(mouse.X, mouse.Y);
-        var shouldExpand = IsMouseInSnapRevealZone(mousePoint, workArea, _currentSnapEdge) ||
+        var shouldExpand = IsMouseInSnapRevealZone(mousePoint, workArea, dockedBounds, _currentSnapEdge) ||
                            IsMouseOverWindowBounds();
 
         SetSnapAutoHideExpanded(shouldExpand);
     }
 
     private bool ShouldKeepSnapAutoHideExpanded() =>
-        _isManualDragging || _isApplyingPlacement || !IsVisible;
+        _isManualDragging || _isApplyingPlacement || !IsVisible || IsMouseCaptured;
 
     private static bool IsMouseInSnapRevealZone(
         System.Drawing.Point mouse,
         Rect workAreaPixels,
+        Rect dockedBoundsPixels,
         OverlayEdgeSnap snapEdge)
     {
         var zone = SnapAutoHideRevealZonePixels;
         return snapEdge switch
         {
-            OverlayEdgeSnap.Left => mouse.X >= workAreaPixels.Left && mouse.X <= workAreaPixels.Left + zone,
-            OverlayEdgeSnap.Right => mouse.X <= workAreaPixels.Right && mouse.X >= workAreaPixels.Right - zone,
-            OverlayEdgeSnap.Top => mouse.Y >= workAreaPixels.Top && mouse.Y <= workAreaPixels.Top + zone,
-            OverlayEdgeSnap.Bottom => mouse.Y <= workAreaPixels.Bottom && mouse.Y >= workAreaPixels.Bottom - zone,
+            OverlayEdgeSnap.Left => mouse.X >= workAreaPixels.Left &&
+                                    mouse.X <= dockedBoundsPixels.Left + zone,
+            OverlayEdgeSnap.Right => mouse.X <= workAreaPixels.Right &&
+                                     mouse.X >= dockedBoundsPixels.Right - zone,
+            OverlayEdgeSnap.Top => mouse.Y >= workAreaPixels.Top &&
+                                   mouse.Y <= dockedBoundsPixels.Top + zone,
+            OverlayEdgeSnap.Bottom => mouse.Y <= workAreaPixels.Bottom &&
+                                      mouse.Y >= dockedBoundsPixels.Bottom - zone,
             _ => false
         };
     }
@@ -1826,7 +1899,10 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
 
         var mouse = WinForms.Control.MousePosition;
-        return bounds.Contains(mouse.X, mouse.Y);
+        return mouse.X >= bounds.Left &&
+               mouse.X < bounds.Right &&
+               mouse.Y >= bounds.Top &&
+               mouse.Y < bounds.Bottom;
     }
 
     private void SetSnapAutoHideExpanded(bool expanded)
@@ -1837,9 +1913,20 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
 
         _isSnapAutoHideExpanded = expanded;
+        var screen = OverlayEdgeSnapService.FindScreenByDeviceName(_snapMonitorDeviceName)
+            ?? WindowBoundsHelper.GetScreenForWindow(this);
+        if (screen is null)
+        {
+            return;
+        }
+
         var targetBounds = expanded
-            ? _snappedFullBoundsPixels
-            : GetSnapAutoHideCollapsedBoundsPixels(_snappedFullBoundsPixels, _currentSnapEdge);
+            ? GetSnappedDockBoundsPixels(screen, _snappedFullBoundsPixels)
+            : OverlayEdgeSnapService.GetSnapAutoHideCollapsedBoundsPixels(
+                _currentSnapEdge,
+                screen,
+                _snappedFullBoundsPixels,
+                SnapAutoHideVisibleStripPixels);
 
         _isApplyingPlacement = true;
         try
@@ -1850,19 +1937,6 @@ public partial class UsageOverlayWindow : FluentAppWindow
         {
             _isApplyingPlacement = false;
         }
-    }
-
-    private static Rect GetSnapAutoHideCollapsedBoundsPixels(Rect fullBounds, OverlayEdgeSnap snapEdge)
-    {
-        var visible = SnapAutoHideVisibleStripPixels;
-        return snapEdge switch
-        {
-            OverlayEdgeSnap.Left => new Rect(fullBounds.Left, fullBounds.Top, visible, fullBounds.Height),
-            OverlayEdgeSnap.Right => new Rect(fullBounds.Right - visible, fullBounds.Top, visible, fullBounds.Height),
-            OverlayEdgeSnap.Top => new Rect(fullBounds.Left, fullBounds.Top, fullBounds.Width, visible),
-            OverlayEdgeSnap.Bottom => new Rect(fullBounds.Left, fullBounds.Bottom - visible, fullBounds.Width, visible),
-            _ => fullBounds
-        };
     }
 
     private void ApplyBoundsPixels(Rect boundsPixels)

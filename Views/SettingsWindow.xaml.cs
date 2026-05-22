@@ -34,6 +34,9 @@ public partial class SettingsWindow : FluentDialogWindow
         OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked = Settings.OverlaySnapAutoHideWhenSnappedEnabled;
         UpdateOverlaySnapDockOptionsEnabled();
         WaifuSquadCheckBox.IsChecked = Settings.WaifuSquadEnabled;
+        WaifuOpacitySlider.Value = Math.Round(Settings.WaifuSquadOpacity * 100);
+        WaifuOpacitySlider.ValueChanged += WaifuOpacitySliderOnValueChanged;
+        UpdateWaifuOpacityControls();
         UpdateIntervalTextBox.SelectAll();
         UpdateIntervalTextBox.Focus();
     }
@@ -148,6 +151,7 @@ public partial class SettingsWindow : FluentDialogWindow
         Settings.OverlaySnapReserveScreenSpaceEnabled = OverlaySnapReserveScreenSpaceCheckBox.IsChecked == true;
         Settings.OverlaySnapAutoHideWhenSnappedEnabled = OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked == true;
         Settings.WaifuSquadEnabled = WaifuSquadCheckBox.IsChecked == true;
+        Settings.WaifuSquadOpacity = WaifuOpacitySlider.Value / 100d;
         MergeSavedCursorDashboardLogin();
         Settings.Normalize();
     }
@@ -208,6 +212,33 @@ public partial class SettingsWindow : FluentDialogWindow
         CursorModeSummaryTextBlock.Text = string.Equals(Settings.CursorUsageMode, AppSettings.CursorUsageModeTeamsApiKey, StringComparison.Ordinal)
             ? "Mode: Teams Admin API key"
             : "Mode: Personal subscription dashboard login";
+    }
+
+    private void WaifuSquadOptionOnChanged(object sender, RoutedEventArgs e)
+    {
+        UpdateWaifuOpacityControls();
+    }
+
+    private void WaifuOpacitySliderOnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (WaifuOpacityValueTextBlock is null)
+        {
+            return;
+        }
+
+        WaifuOpacityValueTextBlock.Text = $"{Math.Round(e.NewValue):0}%";
+    }
+
+    private void UpdateWaifuOpacityControls()
+    {
+        var waifuEnabled = WaifuSquadCheckBox.IsChecked == true;
+        WaifuOpacityPanel.Visibility = waifuEnabled ? Visibility.Visible : Visibility.Collapsed;
+        WaifuOpacityPanel.IsEnabled = waifuEnabled;
+
+        if (WaifuOpacityValueTextBlock is not null)
+        {
+            WaifuOpacityValueTextBlock.Text = $"{Math.Round(WaifuOpacitySlider.Value):0}%";
+        }
     }
 
     private void OverlaySnapDockOptionOnChecked(object sender, RoutedEventArgs e)

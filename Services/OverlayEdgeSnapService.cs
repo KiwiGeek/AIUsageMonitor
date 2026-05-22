@@ -67,29 +67,89 @@ internal static class OverlayEdgeSnapService
         return TryGetSnapEdge(windowBounds, out snapEdge, out screen);
     }
 
+    /// <summary>
+    /// AppBar reservation uses the overlay's current screen rectangle. Do not re-anchor to
+    /// <see cref="WindowBoundsHelper.GetWorkingAreaPixels"/> here; after registration the work
+    /// area already shrinks and re-anchoring would shift the window into the new inset.
+    /// </summary>
     public static Rect GetSnappedAppBarBoundsPixels(
         OverlayEdgeSnap snapEdge,
         WinForms.Screen screen,
-        Rect currentBoundsPixels)
+        Rect currentBoundsPixels) =>
+        currentBoundsPixels;
+
+    /// <summary>
+    /// Aligns the snapped strip on its dock edge while preserving size. Uses the window's
+    /// current dock-edge coordinate (or <paramref name="dockAnchorBoundsPixels"/> when set).
+    /// Do not use <see cref="WindowBoundsHelper.GetWorkingAreaPixels"/> for the dock axis:
+    /// after AppBar registration the work area inset moves and would double-offset the HWND.
+    /// </summary>
+    public static Rect GetSnappedDockBoundsPixels(
+        OverlayEdgeSnap snapEdge,
+        WinForms.Screen screen,
+        Rect currentBoundsPixels,
+        Rect? dockAnchorBoundsPixels = null)
     {
         var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
+        var width = Math.Clamp(currentBoundsPixels.Width, 1, workArea.Width);
+        var height = Math.Clamp(currentBoundsPixels.Height, 1, workArea.Height);
+        var anchor = dockAnchorBoundsPixels ?? currentBoundsPixels;
 
         return snapEdge switch
         {
-            OverlayEdgeSnap.Left => new Rect(workArea.Left, workArea.Top, currentBoundsPixels.Width, workArea.Height),
+            OverlayEdgeSnap.Left => new Rect(
+                anchor.Left,
+                ClampVerticalPosition(currentBoundsPixels.Top, height, workArea),
+                width,
+                height),
             OverlayEdgeSnap.Right => new Rect(
-                workArea.Right - currentBoundsPixels.Width,
-                workArea.Top,
-                currentBoundsPixels.Width,
-                workArea.Height),
-            OverlayEdgeSnap.Top => new Rect(workArea.Left, workArea.Top, workArea.Width, currentBoundsPixels.Height),
+                anchor.Right - width,
+                ClampVerticalPosition(currentBoundsPixels.Top, height, workArea),
+                width,
+                height),
+            OverlayEdgeSnap.Top => new Rect(
+                ClampHorizontalPosition(currentBoundsPixels.Left, width, workArea),
+                anchor.Top,
+                width,
+                height),
             OverlayEdgeSnap.Bottom => new Rect(
-                workArea.Left,
-                workArea.Bottom - currentBoundsPixels.Height,
-                workArea.Width,
-                currentBoundsPixels.Height),
+                ClampHorizontalPosition(currentBoundsPixels.Left, width, workArea),
+                anchor.Bottom - height,
+                width,
+                height),
             _ => currentBoundsPixels
         };
+    }
+
+    public static Rect GetSnapAutoHideCollapsedBoundsPixels(
+        OverlayEdgeSnap snapEdge,
+        WinForms.Screen screen,
+        Rect fullBoundsPixels,
+        double visibleStripPixels)
+    {
+        var docked = GetSnappedDockBoundsPixels(snapEdge, screen, fullBoundsPixels);
+        var visible = Math.Max(1, visibleStripPixels);
+
+        return snapEdge switch
+        {
+            OverlayEdgeSnap.Left => new Rect(docked.Left, docked.Top, visible, docked.Height),
+            OverlayEdgeSnap.Right => new Rect(docked.Right - visible, docked.Top, visible, docked.Height),
+            OverlayEdgeSnap.Top => new Rect(docked.Left, docked.Top, docked.Width, visible),
+            OverlayEdgeSnap.Bottom => new Rect(docked.Left, docked.Bottom - visible, docked.Width, visible),
+            _ => docked
+        };
+    }
+
+    private static double ClampVerticalPosition(double top, double height, Rect workArea)
+    {
+        var maxTop = workArea.Bottom - height;
+        return Math.Clamp(top, workArea.Top, maxTop);
+    }
+
+    private static double ClampHorizontalPosition(double left, double width, Rect workArea)
+    {
+        var maxLeft = workArea.Right - width;
+        return Math.Clamp(left, workArea.Left, maxLeft);
     }
 
     public static WinForms.Screen? FindScreenByDeviceName(string? deviceName)
