@@ -23,6 +23,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
     private string _deepSeekCurrency = "USD";
     private string _deepSeekPeakValidationMessage = string.Empty;
 
+    private bool _anthropicEnabled;
     private bool _cursorEnabled;
     private bool _geminiEnabled;
     private bool _openAiEnabled;
@@ -111,6 +112,20 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         }
     }
 
+    // ── Anthropic ─────────────────────────────────────────────────────────────
+
+    public bool AnthropicEnabled
+    {
+        get => _anthropicEnabled;
+        set
+        {
+            if (_anthropicEnabled == value) return;
+            _anthropicEnabled = value;
+            SaveImmediate();
+            OnPropertyChanged();
+        }
+    }
+
     // ── OpenAI ────────────────────────────────────────────────────────────────
 
     public bool OpenAiEnabled
@@ -181,6 +196,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
             ? peak.ToString("0.00", CultureInfo.InvariantCulture)
             : string.Empty;
 
+        _anthropicEnabled = s.IsProviderEnabled(KnownProviders.Anthropic);
         _cursorEnabled = s.IsProviderEnabled(KnownProviders.Cursor);
         _geminiEnabled = s.IsProviderEnabled(KnownProviders.Gemini);
         _openAiEnabled = s.IsProviderEnabled(KnownProviders.OpenAI);
@@ -188,6 +204,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         _gitHubCopilotEnabled = s.IsProviderEnabled(KnownProviders.GitHubCopilot);
         _gitHubCopilotApiKey = s.GitHubCopilotApiKey;
 
+        OnPropertyChanged(nameof(AnthropicEnabled));
         OnPropertyChanged(nameof(CursorEnabled));
         OnPropertyChanged(nameof(GeminiEnabled));
         OnPropertyChanged(nameof(OpenAiEnabled));
@@ -238,6 +255,7 @@ public sealed class AppSettingsStore : INotifyPropertyChanged, IDisposable
         try
         {
             var s = _settingsService.Load();
+            s.SetProviderEnabled(KnownProviders.Anthropic, _anthropicEnabled);
             s.SetProviderEnabled(KnownProviders.Cursor, _cursorEnabled);
             s.SetProviderEnabled(KnownProviders.Gemini, _geminiEnabled);
             s.SetProviderEnabled(KnownProviders.OpenAI, _openAiEnabled);

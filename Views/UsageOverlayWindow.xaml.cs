@@ -2164,6 +2164,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private static readonly HashSet<string> ContextMenuProviders = new(StringComparer.OrdinalIgnoreCase)
     {
+        KnownProviders.Anthropic,
         KnownProviders.Cursor,
         KnownProviders.DeepSeek,
         KnownProviders.Gemini,
@@ -2233,6 +2234,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
             IsCliInstalled("codex"))
         {
             var launchItem = new WpfMenuItem { Header = "Launch Codex CLI" };
+            launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
+            menu.Items.Add(launchItem);
+        }
+
+        if (string.Equals(providerName, KnownProviders.Anthropic, StringComparison.OrdinalIgnoreCase) &&
+            IsCliInstalled("claude"))
+        {
+            var launchItem = new WpfMenuItem { Header = "Launch Claude Code" };
             launchItem.Click += (_, _) => ProviderLaunchCliRequested?.Invoke(this, args);
             menu.Items.Add(launchItem);
         }

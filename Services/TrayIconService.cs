@@ -18,7 +18,6 @@ public sealed class TrayIconService : IDisposable
     private readonly UsageAggregatorService _usageAggregatorService;
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;
-    private readonly ClaudeStatusExporterService _claudeStatusExporterService;
     private readonly UsageOverlayViewModel _viewModel = new();
     private readonly Icon _appIcon;
     private readonly WinForms.NotifyIcon _notifyIcon;
@@ -31,6 +30,7 @@ public sealed class TrayIconService : IDisposable
     private UsageOverlayWindow? _overlayWindow;
     private LogWindow? _logWindow;
     private CursorDashboardLoginWindow? _cursorDashboardLoginWindow;
+    private AnthropicSettingsWindow? _anthropicSettingsWindow;
     private CursorSettingsWindow? _cursorSettingsWindow;
     private GeminiSettingsWindow? _geminiSettingsWindow;
     private OpenAiSettingsWindow? _openAiSettingsWindow;
@@ -45,13 +45,11 @@ public sealed class TrayIconService : IDisposable
         _usageAggregatorService = usageAggregatorService;
         _settingsService = settingsService;
         _logService = logService;
-        _claudeStatusExporterService = new ClaudeStatusExporterService(logService);
         _appIcon = AppIconService.LoadTrayIcon();
         _settings = _settingsService.Load();
         _settingsStore = new AppSettingsStore(settingsService, logService);
         _settingsStore.SettingsChanged += StoreOnSettingsChanged;
         _settingsStore.PropertyChanged += StoreOnPropertyChanged;
-        EnsureClaudeStatusExporterIfEnabled();
 
         var menu = new WinForms.ContextMenuStrip();
         menu.Items.Add("Show Seth's AI Usage Monitor", null, (_, _) => Dispatch(ShowOverlay));
@@ -333,6 +331,8 @@ public sealed class TrayIconService : IDisposable
             HandleProviderEnabledChanged(KnownProviders.DeepSeek, _settingsStore.DeepSeekEnabled);
         else if (e.PropertyName == nameof(AppSettingsStore.GitHubCopilotEnabled))
             HandleProviderEnabledChanged(KnownProviders.GitHubCopilot, _settingsStore.GitHubCopilotEnabled);
+        else if (e.PropertyName == nameof(AppSettingsStore.AnthropicEnabled))
+            HandleProviderEnabledChanged(KnownProviders.Anthropic, _settingsStore.AnthropicEnabled);
     }
 
     private void HandleProviderEnabledChanged(string providerName, bool enabled)
@@ -345,7 +345,9 @@ public sealed class TrayIconService : IDisposable
 
     private void ShowProviderSettings(string providerName)
     {
-        if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(providerName, KnownProviders.Anthropic, StringComparison.OrdinalIgnoreCase))
+            ShowAnthropicSettings();
+        else if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
             ShowCursorSettings();
         else if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase))
             ShowGeminiSettings();
@@ -375,6 +377,26 @@ public sealed class TrayIconService : IDisposable
         _cursorSettingsWindow.Closed += (_, _) => _cursorSettingsWindow = null;
         _cursorSettingsWindow.Show();
         _cursorSettingsWindow.Activate();
+    }
+
+    private void ShowAnthropicSettings()
+    {
+        if (_anthropicSettingsWindow is not null)
+        {
+            _anthropicSettingsWindow.Activate();
+            return;
+        }
+
+        _anthropicSettingsWindow = new AnthropicSettingsWindow(_settingsStore);
+
+        if (_overlayWindow?.IsVisible == true)
+            _anthropicSettingsWindow.Owner = _overlayWindow;
+        else
+            _anthropicSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        _anthropicSettingsWindow.Closed += (_, _) => _anthropicSettingsWindow = null;
+        _anthropicSettingsWindow.Show();
+        _anthropicSettingsWindow.Activate();
     }
 
     private void ShowOpenAiSettings()
@@ -459,7 +481,9 @@ public sealed class TrayIconService : IDisposable
 
     private void LaunchProviderCli(string providerName)
     {
-        if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(providerName, KnownProviders.Anthropic, StringComparison.OrdinalIgnoreCase))
+            LaunchClaudeCode();
+        else if (string.Equals(providerName, KnownProviders.Cursor, StringComparison.OrdinalIgnoreCase))
             LaunchCursorAgentCli();
         else if (string.Equals(providerName, KnownProviders.Gemini, StringComparison.OrdinalIgnoreCase))
             LaunchGeminiCli();
@@ -467,6 +491,35 @@ public sealed class TrayIconService : IDisposable
             LaunchCodexCli();
         else if (string.Equals(providerName, KnownProviders.GitHubCopilot, StringComparison.OrdinalIgnoreCase))
             LaunchGitHubCopilotCli();
+    }
+
+    private void LaunchClaudeCode()
+    {
+        using var folderDialog = new WinForms.FolderBrowserDialog
+        {
+            Description = "Select workspace directory for Claude Code",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        if (folderDialog.ShowDialog() != WinForms.DialogResult.OK)
+            return;
+
+        var workingDirectory = folderDialog.SelectedPath;
+
+        try
+        {
+            var launched =
+                TryLaunchInTerminal("wt.exe", $"-d \"{workingDirectory}\" cmd /k claude", workingDirectory) ||
+                TryLaunchInTerminal("cmd.exe", "/k claude", workingDirectory);
+
+            if (!launched)
+                _logService.Warning("Anthropic", "Could not find a suitable terminal to launch Claude Code.");
+        }
+        catch (Exception ex)
+        {
+            _logService.Warning("Anthropic", $"Could not launch Claude Code: {ex.Message}");
+        }
     }
 
     private void LaunchCodexCli()
@@ -650,6 +703,7 @@ public sealed class TrayIconService : IDisposable
         else
             settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
+        settingsWindow.AnthropicSetupRequested += (_, _) => ShowAnthropicSettings();
         settingsWindow.OpenAiSetupRequested += (_, _) => ShowOpenAiSettings();
         settingsWindow.CursorSetupRequested += (_, _) => ShowCursorSettings();
         settingsWindow.GeminiSetupRequested += (_, _) => ShowGeminiSettings();
@@ -665,7 +719,6 @@ public sealed class TrayIconService : IDisposable
         _settingsService.Save(_settings);
         _overlayWindow?.ApplySettings(_settings);
         ApplyAutoRunSetting();
-        EnsureClaudeStatusExporterIfEnabled();
         ConfigureRefreshTimer();
         _viewModel.SetAutoRefreshInterval(_settings.UpdateIntervalMinutes);
         _logService.Info("Settings", "Settings saved.");
@@ -682,23 +735,6 @@ public sealed class TrayIconService : IDisposable
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
         {
             _logService.Warning("Settings", $"Could not update auto-run setting: {ex.Message}");
-        }
-    }
-
-    private void EnsureClaudeStatusExporterIfEnabled()
-    {
-        if (!_settings.IsProviderEnabled(KnownProviders.Anthropic) || !_settings.ClaudeStatusExporterEnabled)
-        {
-            return;
-        }
-
-        try
-        {
-            _claudeStatusExporterService.EnsureInstalled();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
-        {
-            _logService.Warning("Anthropic", $"Could not install Claude status exporter: {ex.Message}");
         }
     }
 
@@ -836,6 +872,7 @@ public sealed class TrayIconService : IDisposable
     private void Exit()
     {
         _cursorDashboardLoginWindow?.Close();
+        _anthropicSettingsWindow?.Close();
         _cursorSettingsWindow?.Close();
         _geminiSettingsWindow?.Close();
         _openAiSettingsWindow?.Close();

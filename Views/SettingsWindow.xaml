@@ -96,10 +96,6 @@
                                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                            Text="Claude Code OAuth usage API with local status-line export as fallback."
                                                            TextWrapping="Wrap" />
-                                                <CheckBox x:Name="ClaudeStatusExporterCheckBox"
-                                                          Margin="24,10,0,0"
-                                                          Content="Install Claude Code status exporter automatically"
-                                                          FontSize="12" />
                                             </StackPanel>
                                             <ui:Button Grid.Column="1"
                                                        Width="82"

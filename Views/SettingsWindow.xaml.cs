@@ -10,6 +10,7 @@ public partial class SettingsWindow : FluentDialogWindow
     private readonly AppSettingsService _settingsService;
     private readonly AppLogService _logService;
     private readonly AppSettingsStore _store;
+    private readonly bool _anthropicEnabledSnapshot;
     private readonly bool _cursorEnabledSnapshot;
     private readonly bool _geminiEnabledSnapshot;
     private readonly bool _openAiEnabledSnapshot;
@@ -22,6 +23,7 @@ public partial class SettingsWindow : FluentDialogWindow
         _settingsService = settingsService;
         _logService = logService;
         _store = store;
+        _anthropicEnabledSnapshot = store.AnthropicEnabled;
         _cursorEnabledSnapshot = store.CursorEnabled;
         _geminiEnabledSnapshot = store.GeminiEnabled;
         _openAiEnabledSnapshot = store.OpenAiEnabled;
@@ -30,7 +32,7 @@ public partial class SettingsWindow : FluentDialogWindow
 
         Settings = settings.Clone();
         UpdateIntervalTextBox.Text = Settings.UpdateIntervalMinutes.ToString();
-        AnthropicProviderEnabledCheckBox.IsChecked = Settings.IsProviderEnabled(KnownProviders.Anthropic);
+        AnthropicProviderEnabledCheckBox.IsChecked = store.AnthropicEnabled;
         OpenAiProviderEnabledCheckBox.IsChecked = store.OpenAiEnabled;
         GeminiProviderEnabledCheckBox.IsChecked = store.GeminiEnabled;
         CursorProviderEnabledCheckBox.IsChecked = store.CursorEnabled;
@@ -38,6 +40,8 @@ public partial class SettingsWindow : FluentDialogWindow
         GitHubCopilotProviderEnabledCheckBox.IsChecked = store.GitHubCopilotEnabled;
 
         // Checkbox → store (writes to disk immediately so provider settings windows see it live).
+        AnthropicProviderEnabledCheckBox.Checked   += (_, _) => _store.AnthropicEnabled = true;
+        AnthropicProviderEnabledCheckBox.Unchecked += (_, _) => _store.AnthropicEnabled = false;
         OpenAiProviderEnabledCheckBox.Checked   += (_, _) => _store.OpenAiEnabled = true;
         OpenAiProviderEnabledCheckBox.Unchecked += (_, _) => _store.OpenAiEnabled = false;
         CursorProviderEnabledCheckBox.Checked   += (_, _) => _store.CursorEnabled = true;
@@ -61,7 +65,6 @@ public partial class SettingsWindow : FluentDialogWindow
         UpdateCursorModeSummary();
         UpdateDeepSeekApiKeySummary();
         UpdateGitHubCopilotApiKeySummary();
-        ClaudeStatusExporterCheckBox.IsChecked = Settings.ClaudeStatusExporterEnabled;
         AutoRunAtLoginCheckBox.IsChecked = Settings.AutoRunAtLoginEnabled || Services.AutoRunService.IsEnabled();
         OverlaySnapToScreenCheckBox.IsChecked = Settings.OverlaySnapToScreenEnabled;
         OverlaySnapToScreenCheckBox.Checked += (_, _) => UpdateOverlaySnapDockOptionsEnabled();
@@ -83,7 +86,9 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void StoreOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AppSettingsStore.OpenAiEnabled))
+        if (e.PropertyName == nameof(AppSettingsStore.AnthropicEnabled))
+            AnthropicProviderEnabledCheckBox.IsChecked = _store.AnthropicEnabled;
+        else if (e.PropertyName == nameof(AppSettingsStore.OpenAiEnabled))
             OpenAiProviderEnabledCheckBox.IsChecked = _store.OpenAiEnabled;
         else if (e.PropertyName == nameof(AppSettingsStore.CursorEnabled))
             CursorProviderEnabledCheckBox.IsChecked = _store.CursorEnabled;
@@ -114,6 +119,7 @@ public partial class SettingsWindow : FluentDialogWindow
         DialogResult = true;
     }
 
+    public event EventHandler? AnthropicSetupRequested;
     public event EventHandler? OpenAiSetupRequested;
     public event EventHandler? CursorSetupRequested;
     public event EventHandler? GeminiSetupRequested;
@@ -127,6 +133,12 @@ public partial class SettingsWindow : FluentDialogWindow
     {
         if (sender is not FrameworkElement { Tag: string providerName })
         {
+            return;
+        }
+
+        if (string.Equals(providerName, KnownProviders.Anthropic, StringComparison.OrdinalIgnoreCase))
+        {
+            AnthropicSetupRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
@@ -189,6 +201,7 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void CancelButtonOnClick(object sender, RoutedEventArgs e)
     {
+        _store.AnthropicEnabled = _anthropicEnabledSnapshot;
         _store.OpenAiEnabled = _openAiEnabledSnapshot;
         _store.CursorEnabled = _cursorEnabledSnapshot;
         _store.GeminiEnabled = _geminiEnabledSnapshot;
@@ -199,13 +212,11 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void ApplySettingsFromControls()
     {
-        Settings.SetProviderEnabled(KnownProviders.Anthropic, AnthropicProviderEnabledCheckBox.IsChecked == true);
         Settings.SetProviderEnabled(KnownProviders.OpenAI, OpenAiProviderEnabledCheckBox.IsChecked == true);
         Settings.SetProviderEnabled(KnownProviders.Gemini, GeminiProviderEnabledCheckBox.IsChecked == true);
         Settings.SetProviderEnabled(KnownProviders.Cursor, CursorProviderEnabledCheckBox.IsChecked == true);
         Settings.SetProviderEnabled(KnownProviders.DeepSeek, DeepSeekProviderEnabledCheckBox.IsChecked == true);
         Settings.SetProviderEnabled(KnownProviders.GitHubCopilot, GitHubCopilotProviderEnabledCheckBox.IsChecked == true);
-        Settings.ClaudeStatusExporterEnabled = ClaudeStatusExporterCheckBox.IsChecked == true;
         Settings.AutoRunAtLoginEnabled = AutoRunAtLoginCheckBox.IsChecked == true;
         Settings.OverlaySnapToScreenEnabled = OverlaySnapToScreenCheckBox.IsChecked == true;
         Settings.OverlaySnapReserveScreenSpaceEnabled = OverlaySnapReserveScreenSpaceCheckBox.IsChecked == true;
