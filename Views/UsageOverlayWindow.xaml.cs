@@ -37,6 +37,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const double CompactEmptyMinimumHeight = 96;
     private const double MiniEmptyMinimumHeight = 58;
     private const double FullMinimumVerticalChrome = 175;
+    /// <summary>Allow full cards to stay visible at their visual minimum before downgrading to compact mode.</summary>
+    private const double FullRetentionMinimumCardSlotHeight = 190;
     private const double CompactMinimumVerticalChrome = 36;
     private const double MiniMinimumVerticalChrome = 22;
     private const double FullMinimumCardSlotHeight = 265;
@@ -836,7 +838,47 @@ public partial class UsageOverlayWindow : FluentAppWindow
             Math.Max(1, height - EstimatedVerticalChromeInset(displayMode)),
             providerCount);
 
-        return grid.MeetsMinimumSlotSize;
+        if (grid.MeetsMinimumSlotSize)
+        {
+            return true;
+        }
+
+        return string.Equals(displayMode, FullDisplayMode, StringComparison.Ordinal) &&
+               CanRetainFullModeWithReducedCardHeight(width, height, providerCount, showCompactButtons);
+    }
+
+    private static bool CanRetainFullModeWithReducedCardHeight(
+        double width,
+        double height,
+        int providerCount,
+        bool showCompactButtons)
+    {
+        if (providerCount <= 0)
+        {
+            return false;
+        }
+
+        var availableWidth = Math.Max(1, width - EstimatedHorizontalChromeInset(FullDisplayMode, showCompactButtons));
+        var availableHeight = Math.Max(1, height - EstimatedVerticalChromeInset(FullDisplayMode));
+        var minimumCardWidth = GetMinimumCardWidth(FullDisplayMode);
+        var (marginWidth, marginHeight) = GetCardMargin(FullDisplayMode);
+        var maxColumns = Math.Clamp(
+            (int)Math.Floor((availableWidth + marginWidth) / (minimumCardWidth + marginWidth)),
+            1,
+            providerCount);
+
+        for (var columns = 1; columns <= maxColumns; columns++)
+        {
+            var rows = (int)Math.Ceiling(providerCount / (double)columns);
+            var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
+            var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
+            if (cardSlotWidth >= minimumCardWidth && cardSlotHeight >= FullRetentionMinimumCardSlotHeight)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static CardGrid CalculateCardGrid(
