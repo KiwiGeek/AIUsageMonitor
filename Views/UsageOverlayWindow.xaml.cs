@@ -843,6 +843,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return true;
         }
 
+        // Full mode carries the richest details and can remain usable below its ideal slot height,
+        // while compact/mini already represent intentionally reduced-detail layouts.
         return string.Equals(displayMode, FullDisplayMode, StringComparison.Ordinal) &&
                CanRetainFullModeWithReducedCardHeight(width, height, providerCount, showCompactButtons);
     }
@@ -869,7 +871,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         for (var columns = 1; columns <= maxColumns; columns++)
         {
-            var rows = (int)Math.Ceiling(providerCount / (double)columns);
+            var rows = GetRowsForColumns(providerCount, columns);
             var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
             var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
             if (cardSlotWidth >= minimumCardWidth && cardSlotHeight >= FullRetentionMinimumCardSlotHeight)
@@ -910,7 +912,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         for (var columns = 1; columns <= maxColumns; columns++)
         {
-            var rows = (int)Math.Ceiling(providerCount / (double)columns);
+            var rows = GetRowsForColumns(providerCount, columns);
             var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
             var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
 
@@ -1380,6 +1382,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         return GetMinimumCardWidth(displayMode) / GetMinimumCardSlotHeight(displayMode);
     }
+
+    private static int GetRowsForColumns(int providerCount, int columns) =>
+        (int)Math.Ceiling(providerCount / (double)Math.Max(1, columns));
 
     private static double GetCardShapeScore(double aspectRatio, double idealAspectRatio)
     {
