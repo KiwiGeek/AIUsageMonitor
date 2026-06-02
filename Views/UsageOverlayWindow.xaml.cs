@@ -748,23 +748,38 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         providerCount = Math.Max(0, providerCount);
         var displayMode = GetDisplayMode(width, height, providerCount);
-        var showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
+        CardGrid grid;
+        bool showCompactButtons;
 
-        if (displayMode == CompactDisplayMode && providerCount > 0)
+        while (true)
         {
-            var withButtons = CalculateCardGrid(
+            showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
+
+            if (displayMode == CompactDisplayMode && providerCount > 0)
+            {
+                var withButtons = CalculateCardGrid(
+                    displayMode,
+                    GetAvailableCardWidth(displayMode, true),
+                    GetAvailableCardHeight(displayMode, height),
+                    providerCount);
+                showCompactButtons = withButtons.Columns > 1;
+            }
+
+            grid = CalculateCardGrid(
                 displayMode,
-                GetAvailableCardWidth(displayMode, true),
+                GetAvailableCardWidth(displayMode, showCompactButtons),
                 GetAvailableCardHeight(displayMode, height),
                 providerCount);
-            showCompactButtons = withButtons.Columns > 1;
-        }
 
-        var grid = CalculateCardGrid(
-            displayMode,
-            GetAvailableCardWidth(displayMode, showCompactButtons),
-            GetAvailableCardHeight(displayMode, height),
-            providerCount);
+            if (providerCount <= 0 || grid.MeetsMinimumSlotSize || string.Equals(displayMode, MiniDisplayMode, StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            displayMode = string.Equals(displayMode, FullDisplayMode, StringComparison.Ordinal)
+                ? CompactDisplayMode
+                : MiniDisplayMode;
+        }
 
         return new ResponsiveLayout(
             displayMode,
