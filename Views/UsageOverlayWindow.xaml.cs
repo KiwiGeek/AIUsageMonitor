@@ -872,8 +872,13 @@ public partial class UsageOverlayWindow : FluentAppWindow
         for (var columns = 1; columns <= maxColumns; columns++)
         {
             var rows = GetRowsForColumns(providerCount, columns);
-            var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
-            var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
+            var (cardSlotWidth, cardSlotHeight) = GetCardSlotDimensions(
+                availableWidth,
+                availableHeight,
+                columns,
+                rows,
+                marginWidth,
+                marginHeight);
             if (cardSlotWidth >= minimumCardWidth && cardSlotHeight >= FullRetentionMinimumCardSlotHeight)
             {
                 return true;
@@ -913,8 +918,13 @@ public partial class UsageOverlayWindow : FluentAppWindow
         for (var columns = 1; columns <= maxColumns; columns++)
         {
             var rows = GetRowsForColumns(providerCount, columns);
-            var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
-            var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
+            var (cardSlotWidth, cardSlotHeight) = GetCardSlotDimensions(
+                availableWidth,
+                availableHeight,
+                columns,
+                rows,
+                marginWidth,
+                marginHeight);
 
             if (cardSlotWidth < minimumCardWidth || cardSlotHeight < minimumCardSlotHeight)
             {
@@ -1384,7 +1394,20 @@ public partial class UsageOverlayWindow : FluentAppWindow
     }
 
     private static int GetRowsForColumns(int providerCount, int columns) =>
-        (int)Math.Ceiling(providerCount / (double)Math.Max(1, columns));
+        (int)Math.Ceiling(providerCount / (double)columns);
+
+    private static (double Width, double Height) GetCardSlotDimensions(
+        double availableWidth,
+        double availableHeight,
+        int columns,
+        int rows,
+        double marginWidth,
+        double marginHeight)
+    {
+        var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
+        var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
+        return (cardSlotWidth, cardSlotHeight);
+    }
 
     private static double GetCardShapeScore(double aspectRatio, double idealAspectRatio)
     {
