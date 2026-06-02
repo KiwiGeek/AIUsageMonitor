@@ -37,10 +37,17 @@ public sealed class AppSettingsService
             return defaultSettings;
         }
 
-        var json = File.ReadAllText(SettingsPath);
-        var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
-        settings.Normalize();
-        return settings;
+        try
+        {
+            var json = File.ReadAllText(SettingsPath);
+            var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
+            settings.Normalize();
+            return settings;
+        }
+        catch (JsonException)
+        {
+            return RecoverFromInvalidSettings();
+        }
     }
 
     public void Save(AppSettings settings)
@@ -48,5 +55,37 @@ public sealed class AppSettingsService
         settings.Normalize();
         var json = JsonSerializer.Serialize(settings, SerializerOptions);
         File.WriteAllText(SettingsPath, json);
+    }
+
+    private AppSettings RecoverFromInvalidSettings()
+    {
+        TryBackupInvalidSettingsFile();
+
+        var defaultSettings = new AppSettings();
+        Save(defaultSettings);
+        return defaultSettings;
+    }
+
+    private void TryBackupInvalidSettingsFile()
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(SettingsPath);
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(SettingsPath);
+            var extension = Path.GetExtension(SettingsPath);
+            var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss");
+            var backupFileName = $"{fileNameWithoutExtension}.invalid.{timestamp}{extension}";
+            var backupPath = directory is null
+                ? backupFileName
+                : Path.Combine(directory, backupFileName);
+
+            File.Copy(SettingsPath, backupPath, overwrite: false);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }
