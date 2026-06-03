@@ -412,19 +412,19 @@
                                             <Image HorizontalAlignment="Stretch"
                                                    VerticalAlignment="Stretch"
                                                    IsHitTestVisible="False"
-                                                   RenderTransformOrigin="0.62,0.45"
+                                                   RenderTransformOrigin="0.5,0.5"
                                                    Opacity="{Binding DataContext.WaifuBackgroundOpacity, RelativeSource={RelativeSource AncestorType=Window}}"
                                                    Source="{Binding BackgroundImage}"
                                                    Stretch="UniformToFill">
                                                 <Image.Style>
                                                     <Style TargetType="{x:Type Image}">
-                                                        <Setter Property="Margin" Value="0,-24,-28,-14" />
+                                                        <Setter Property="Margin" Value="-32,-28,-32,-20" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
-                                                                <Setter Property="Margin" Value="0,-18,-22,-10" />
+                                                                <Setter Property="Margin" Value="-24,-20,-24,-14" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
-                                                                <Setter Property="Margin" Value="0,-10,-14,-6" />
+                                                                <Setter Property="Margin" Value="-16,-14,-16,-10" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -448,11 +448,11 @@
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
-                                                                                 From="0" To="-28" Duration="0:0:40">
+                                                                                 From="-12" To="12" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                                 From="0" To="-16" Duration="0:0:40">
+                                                                                 From="-8" To="8" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                             </Storyboard>
