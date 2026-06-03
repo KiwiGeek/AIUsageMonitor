@@ -418,13 +418,13 @@
                                                    Stretch="UniformToFill">
                                                 <Image.Style>
                                                     <Style TargetType="{x:Type Image}">
-                                                        <Setter Property="Margin" Value="-118,-64,-22,-18" />
+                                                        <Setter Property="Margin" Value="-118,-64,-118,-18" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
-                                                                <Setter Property="Margin" Value="-88,-48,-16,-12" />
+                                                                <Setter Property="Margin" Value="-88,-48,-88,-12" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
-                                                                <Setter Property="Margin" Value="-62,-34,-12,-8" />
+                                                                <Setter Property="Margin" Value="-62,-34,-62,-8" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
