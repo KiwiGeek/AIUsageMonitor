@@ -761,17 +761,23 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
             if (displayMode == CompactDisplayMode && providerCount > 0)
             {
+                var availableWidthForButtons = string.Equals(displayMode, DisplayMode, StringComparison.Ordinal)
+                    ? GetAvailableCardWidth(displayMode, true)
+                    : Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, true));
                 var withButtons = CalculateCardGrid(
                     displayMode,
-                    Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, true)),
+                    availableWidthForButtons,
                     availableHeight,
                     providerCount);
                 showCompactButtons = withButtons.Columns > 1;
             }
 
+            var availableWidth = string.Equals(displayMode, DisplayMode, StringComparison.Ordinal)
+                ? GetAvailableCardWidth(displayMode, showCompactButtons)
+                : Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, showCompactButtons));
             grid = CalculateCardGrid(
                 displayMode,
-                Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, showCompactButtons)),
+                availableWidth,
                 availableHeight,
                 providerCount);
 
