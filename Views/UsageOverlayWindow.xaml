@@ -409,7 +409,7 @@
                                             MouseRightButtonUp="ProviderCard_MouseRightButtonUp">
                                         <Border Style="{StaticResource ProviderCardInnerStyle}">
                                         <Grid>
-                                            <Image HorizontalAlignment="Right"
+                                            <Image HorizontalAlignment="Stretch"
                                                    VerticalAlignment="Stretch"
                                                    IsHitTestVisible="False"
                                                    RenderTransformOrigin="0.84,0.3"
