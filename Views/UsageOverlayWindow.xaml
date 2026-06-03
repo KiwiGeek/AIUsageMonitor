@@ -447,14 +447,6 @@
                                                                                  From="1.36" To="1.48" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
-                                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
-                                                                                 From="-118" To="-84" Duration="0:0:40">
-                                                                    <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
-                                                                </DoubleAnimation>
-                                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                                 From="28" To="12" Duration="0:0:40">
-                                                                    <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
-                                                                </DoubleAnimation>
                                                             </Storyboard>
                                                         </BeginStoryboard>
                                                     </EventTrigger>
