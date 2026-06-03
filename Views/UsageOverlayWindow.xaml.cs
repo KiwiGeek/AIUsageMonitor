@@ -1499,15 +1499,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
                              cardSlotWidth >= 156 &&
                              cardSlotHeight >= 54;
 
-        if (ShowCompactSupplementalContent != showCompactSupplemental)
-        {
-            ShowCompactSupplementalContent = showCompactSupplemental;
-        }
-
-        if (ShowMiniDetailContent != showMiniDetail)
-        {
-            ShowMiniDetailContent = showMiniDetail;
-        }
+        ShowCompactSupplementalContent = showCompactSupplemental;
+        ShowMiniDetailContent = showMiniDetail;
     }
 
     private static int GetRowsForColumns(int providerCount, int columns) =>
