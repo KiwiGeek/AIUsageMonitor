@@ -28,10 +28,10 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const string CompactDisplayMode = "Compact";
     private const string MiniDisplayMode = "Mini";
     private const double CompactWidthBreakpoint = 760;
-    private const double MiniWidthBreakpoint = 500;
-    private const double MiniHeightBreakpoint = 290;
+    private const double MiniWidthBreakpoint = 430;
+    private const double MiniHeightBreakpoint = 230;
     private const double FullMinimumCardWidth = 330;
-    private const double CompactMinimumCardWidth = 220;
+    private const double CompactMinimumCardWidth = 200;
     private const double MiniMinimumCardWidth = 136;
     private const double FullEmptyMinimumHeight = 240;
     private const double CompactEmptyMinimumHeight = 96;
@@ -42,7 +42,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const double CompactMinimumVerticalChrome = 36;
     private const double MiniMinimumVerticalChrome = 22;
     private const double FullMinimumCardSlotHeight = 265;
-    private const double CompactMinimumCardSlotHeight = 100;
+    private const double CompactMinimumCardSlotHeight = 84;
     /// <summary>Compact cards with two quota rows need more than the floating compact minimum.</summary>
     private const double CompactHorizontalStripCardSlotHeight = 128;
     /// <summary>Minimal window padding on top/bottom dock (toolbar is on the right).</summary>
@@ -94,6 +94,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     public static readonly DependencyProperty ShowSideToolbarProperty = DependencyProperty.Register(
         nameof(ShowSideToolbar),
+        typeof(bool),
+        typeof(UsageOverlayWindow),
+        new PropertyMetadata(false));
+
+    public static readonly DependencyProperty ShowCompactSupplementalContentProperty = DependencyProperty.Register(
+        nameof(ShowCompactSupplementalContent),
+        typeof(bool),
+        typeof(UsageOverlayWindow),
+        new PropertyMetadata(true));
+
+    public static readonly DependencyProperty ShowMiniDetailContentProperty = DependencyProperty.Register(
+        nameof(ShowMiniDetailContent),
         typeof(bool),
         typeof(UsageOverlayWindow),
         new PropertyMetadata(false));
@@ -352,6 +364,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         get => (bool)GetValue(ShowSideToolbarProperty);
         private set => SetValue(ShowSideToolbarProperty, value);
+    }
+
+    public bool ShowCompactSupplementalContent
+    {
+        get => (bool)GetValue(ShowCompactSupplementalContentProperty);
+        private set => SetValue(ShowCompactSupplementalContentProperty, value);
+    }
+
+    public bool ShowMiniDetailContent
+    {
+        get => (bool)GetValue(ShowMiniDetailContentProperty);
+        private set => SetValue(ShowMiniDetailContentProperty, value);
     }
 
     private bool ComputeShowSideToolbar() =>
@@ -752,6 +776,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         MinHeight = GetMinimumWindowHeight(layout.DisplayMode, layout.ShowCompactButtons);
         CardSlotWidth = layout.CardSlotWidth;
         CardSlotHeight = layout.CardSlotHeight;
+        UpdateCardDetailVisibility(layout.DisplayMode, layout.CardSlotWidth, layout.CardSlotHeight);
         ApplyProvidersListLayout(layout);
         Dispatcher.BeginInvoke(
             () => WindowRoundedCornersService.Apply(this),
@@ -1184,6 +1209,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         MinHeight = GetMinimumWindowHeight(layout.DisplayMode, layout.ShowCompactButtons);
         CardSlotWidth = layout.CardSlotWidth;
         CardSlotHeight = layout.CardSlotHeight;
+        UpdateCardDetailVisibility(layout.DisplayMode, layout.CardSlotWidth, layout.CardSlotHeight);
         ApplyProvidersListLayout(layout);
 
         if (!_isManualDragging)
@@ -1250,6 +1276,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         CardSlotWidth = cardWidth;
         CardSlotHeight = cardHeight;
+        UpdateCardDetailVisibility(displayMode, cardWidth, cardHeight);
         ProvidersList.Width = cardWidth;
         ProvidersList.Height = (rows * cardHeight) + (rows * marginHeight);
 
@@ -1343,6 +1370,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         CardSlotWidth = cardWidth;
         CardSlotHeight = cardSlotHeight;
+        UpdateCardDetailVisibility(displayMode, cardWidth, cardSlotHeight);
         ProvidersList.Width = (columns * cardWidth) + (columns * marginWidth);
         ProvidersList.Height = cardSlotHeight + marginHeight;
 
@@ -1460,6 +1488,26 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private static double GetIdealCardAspectRatio(string displayMode)
     {
         return GetMinimumCardWidth(displayMode) / GetMinimumCardSlotHeight(displayMode);
+    }
+
+    private void UpdateCardDetailVisibility(string displayMode, double cardSlotWidth, double cardSlotHeight)
+    {
+        var showCompactSupplemental = string.Equals(displayMode, CompactDisplayMode, StringComparison.Ordinal) &&
+                                      cardSlotWidth >= 250 &&
+                                      cardSlotHeight >= 102;
+        var showMiniDetail = string.Equals(displayMode, MiniDisplayMode, StringComparison.Ordinal) &&
+                             cardSlotWidth >= 156 &&
+                             cardSlotHeight >= 54;
+
+        if (ShowCompactSupplementalContent != showCompactSupplemental)
+        {
+            ShowCompactSupplementalContent = showCompactSupplemental;
+        }
+
+        if (ShowMiniDetailContent != showMiniDetail)
+        {
+            ShowMiniDetailContent = showMiniDetail;
+        }
     }
 
     private static int GetRowsForColumns(int providerCount, int columns) =>
