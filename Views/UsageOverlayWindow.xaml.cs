@@ -37,8 +37,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const double CompactEmptyMinimumHeight = 96;
     private const double MiniEmptyMinimumHeight = 58;
     private const double FullMinimumVerticalChrome = 175;
-    /// <summary>Allow full cards to stay visible at their visual minimum before downgrading to compact mode.</summary>
-    private const double FullRetentionMinimumCardSlotHeight = 190;
+    /// <summary>Allow full cards to stay visible longer before downgrading to compact mode.</summary>
+    private const double FullRetentionMinimumCardSlotHeight = 170;
     private const double CompactMinimumVerticalChrome = 36;
     private const double MiniMinimumVerticalChrome = 22;
     private const double FullMinimumCardSlotHeight = 265;
