@@ -755,7 +755,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
         do
         {
             showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
-            var availableHeight = Math.Max(1, height - EstimatedVerticalChromeInset(displayMode));
+            var availableHeight = string.Equals(displayMode, DisplayMode, StringComparison.Ordinal)
+                ? GetAvailableCardHeight(displayMode, height)
+                : Math.Max(1, height - EstimatedVerticalChromeInset(displayMode));
 
             if (displayMode == CompactDisplayMode && providerCount > 0)
             {
