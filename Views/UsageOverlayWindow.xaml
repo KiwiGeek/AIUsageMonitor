@@ -409,28 +409,22 @@
                                             MouseRightButtonUp="ProviderCard_MouseRightButtonUp">
                                         <Border Style="{StaticResource ProviderCardInnerStyle}">
                                         <Grid>
-                                            <Image HorizontalAlignment="Right"
-                                                   VerticalAlignment="Bottom"
+                                            <Image HorizontalAlignment="Stretch"
+                                                   VerticalAlignment="Stretch"
                                                    IsHitTestVisible="False"
-                                                   RenderTransformOrigin="0.5,0.5"
+                                                   RenderTransformOrigin="0.62,0.45"
                                                    Opacity="{Binding DataContext.WaifuBackgroundOpacity, RelativeSource={RelativeSource AncestorType=Window}}"
                                                    Source="{Binding BackgroundImage}"
-                                                   Stretch="Uniform">
+                                                   Stretch="UniformToFill">
                                                 <Image.Style>
                                                     <Style TargetType="{x:Type Image}">
-                                                        <Setter Property="Width" Value="230" />
-                                                        <Setter Property="Height" Value="275" />
-                                                        <Setter Property="Margin" Value="0,6,-14,0" />
+                                                        <Setter Property="Margin" Value="0,-24,-28,-14" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
-                                                                <Setter Property="Width" Value="132" />
-                                                                <Setter Property="Height" Value="162" />
-                                                                <Setter Property="Margin" Value="0,4,-8,0" />
+                                                                <Setter Property="Margin" Value="0,-18,-22,-10" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
-                                                                <Setter Property="Width" Value="74" />
-                                                                <Setter Property="Height" Value="98" />
-                                                                <Setter Property="Margin" Value="0,2,-4,0" />
+                                                                <Setter Property="Margin" Value="0,-10,-14,-6" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -446,19 +440,19 @@
                                                         <BeginStoryboard>
                                                             <Storyboard RepeatBehavior="Forever" AutoReverse="True">
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                                 From="1.1" To="1.15" Duration="0:0:35">
+                                                                                 From="1.12" To="1.2" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                                 From="1.1" To="1.15" Duration="0:0:35">
+                                                                                 From="1.12" To="1.2" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
-                                                                                 From="0" To="-22" Duration="0:0:35">
+                                                                                 From="0" To="-28" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                                 From="0" To="-12" Duration="0:0:35">
+                                                                                 From="0" To="-16" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                             </Storyboard>
