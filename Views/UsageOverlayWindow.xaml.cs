@@ -750,8 +750,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
         var displayMode = GetDisplayMode(width, height, providerCount);
         CardGrid grid;
         bool showCompactButtons;
+        var keepDowngrading = false;
 
-        while (true)
+        do
         {
             showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
             var availableHeight = Math.Max(1, height - EstimatedVerticalChromeInset(displayMode));
@@ -772,15 +773,13 @@ public partial class UsageOverlayWindow : FluentAppWindow
                 availableHeight,
                 providerCount);
 
-            if (providerCount <= 0 || grid.MeetsMinimumSlotSize || string.Equals(displayMode, MiniDisplayMode, StringComparison.Ordinal))
+            keepDowngrading = ShouldDowngradeDisplayMode(providerCount, displayMode, grid);
+            if (keepDowngrading)
             {
-                break;
+                displayMode = GetNextMoreCompactDisplayMode(displayMode);
             }
-
-            displayMode = string.Equals(displayMode, FullDisplayMode, StringComparison.Ordinal)
-                ? CompactDisplayMode
-                : MiniDisplayMode;
         }
+        while (keepDowngrading);
 
         return new ResponsiveLayout(
             displayMode,
@@ -791,6 +790,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
             grid.MeetsMinimumSlotSize,
             showCompactButtons);
     }
+
+    private static bool ShouldDowngradeDisplayMode(int providerCount, string displayMode, CardGrid grid)
+    {
+        return providerCount > 0 &&
+               !grid.MeetsMinimumSlotSize &&
+               !string.Equals(displayMode, MiniDisplayMode, StringComparison.Ordinal);
+    }
+
+    private static string GetNextMoreCompactDisplayMode(string displayMode) =>
+        string.Equals(displayMode, FullDisplayMode, StringComparison.Ordinal)
+            ? CompactDisplayMode
+            : MiniDisplayMode;
 
     private double GetAvailableCardWidth(string displayMode, bool showCompactButtons)
     {
