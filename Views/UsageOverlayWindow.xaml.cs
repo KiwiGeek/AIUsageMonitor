@@ -37,6 +37,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const double CompactEmptyMinimumHeight = 96;
     private const double MiniEmptyMinimumHeight = 58;
     private const double FullMinimumVerticalChrome = 175;
+    /// <summary>Allow full cards to stay visible at their visual minimum before downgrading to compact mode.</summary>
+    private const double FullRetentionMinimumCardSlotHeight = 190;
     private const double CompactMinimumVerticalChrome = 36;
     private const double MiniMinimumVerticalChrome = 22;
     private const double FullMinimumCardSlotHeight = 265;
@@ -512,6 +514,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         WindowRoundedCornersService.Apply(this);
         QueueResponsiveLayoutUpdate();
+        HideUnexpectedTitleBarButtons();
+        Dispatcher.BeginInvoke(HideUnexpectedTitleBarButtons, DispatcherPriority.Loaded);
     }
 
     private void WindowOnSourceInitialized(object? sender, EventArgs e)
@@ -525,6 +529,38 @@ public partial class UsageOverlayWindow : FluentAppWindow
             {
                 ApplyEdgeSnap(_currentSnapEdge, screen);
             }
+        }
+    }
+
+    private void HideUnexpectedTitleBarButtons()
+    {
+        if (Content is not DependencyObject root)
+        {
+            return;
+        }
+
+        HideUnexpectedTitleBarButtons(root);
+    }
+
+    private static void HideUnexpectedTitleBarButtons(DependencyObject node)
+    {
+        var childCount = VisualTreeHelper.GetChildrenCount(node);
+        for (var i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is FrameworkElement element)
+            {
+                var childType = element.GetType();
+                if (childType.Name == "TitleBarButton" &&
+                    childType.Namespace == "Wpf.Ui.Controls")
+                {
+                    element.Visibility = Visibility.Collapsed;
+                    element.Focusable = false;
+                    element.IsHitTestVisible = false;
+                }
+            }
+
+            HideUnexpectedTitleBarButtons(child);
         }
     }
 
@@ -746,23 +782,46 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         providerCount = Math.Max(0, providerCount);
         var displayMode = GetDisplayMode(width, height, providerCount);
-        var showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
+        CardGrid grid;
+        bool showCompactButtons;
+        var keepDowngrading = false;
 
-        if (displayMode == CompactDisplayMode && providerCount > 0)
+        do
         {
-            var withButtons = CalculateCardGrid(
-                displayMode,
-                GetAvailableCardWidth(displayMode, true),
-                GetAvailableCardHeight(displayMode, height),
-                providerCount);
-            showCompactButtons = withButtons.Columns > 1;
-        }
+            showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
+            var availableHeight = string.Equals(displayMode, DisplayMode, StringComparison.Ordinal)
+                ? GetAvailableCardHeight(displayMode, height)
+                : Math.Max(1, height - EstimatedVerticalChromeInset(displayMode));
 
-        var grid = CalculateCardGrid(
-            displayMode,
-            GetAvailableCardWidth(displayMode, showCompactButtons),
-            GetAvailableCardHeight(displayMode, height),
-            providerCount);
+            if (displayMode == CompactDisplayMode && providerCount > 0)
+            {
+                var availableWidthForButtons = string.Equals(displayMode, DisplayMode, StringComparison.Ordinal)
+                    ? GetAvailableCardWidth(displayMode, true)
+                    : Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, true));
+                var withButtons = CalculateCardGrid(
+                    displayMode,
+                    availableWidthForButtons,
+                    availableHeight,
+                    providerCount);
+                showCompactButtons = withButtons.Columns > 1;
+            }
+
+            var availableWidth = string.Equals(displayMode, DisplayMode, StringComparison.Ordinal)
+                ? GetAvailableCardWidth(displayMode, showCompactButtons)
+                : Math.Max(1, width - EstimatedHorizontalChromeInset(displayMode, showCompactButtons));
+            grid = CalculateCardGrid(
+                displayMode,
+                availableWidth,
+                availableHeight,
+                providerCount);
+
+            keepDowngrading = ShouldDowngradeDisplayMode(providerCount, displayMode, grid);
+            if (keepDowngrading)
+            {
+                displayMode = GetNextMoreCompactDisplayMode(displayMode);
+            }
+        }
+        while (keepDowngrading);
 
         return new ResponsiveLayout(
             displayMode,
@@ -773,6 +832,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
             grid.MeetsMinimumSlotSize,
             showCompactButtons);
     }
+
+    private static bool ShouldDowngradeDisplayMode(int providerCount, string displayMode, CardGrid grid)
+    {
+        return providerCount > 0 &&
+               !grid.MeetsMinimumSlotSize &&
+               !string.Equals(displayMode, MiniDisplayMode, StringComparison.Ordinal);
+    }
+
+    private static string GetNextMoreCompactDisplayMode(string displayMode) =>
+        string.Equals(displayMode, FullDisplayMode, StringComparison.Ordinal)
+            ? CompactDisplayMode
+            : MiniDisplayMode;
 
     private double GetAvailableCardWidth(string displayMode, bool showCompactButtons)
     {
@@ -836,7 +907,54 @@ public partial class UsageOverlayWindow : FluentAppWindow
             Math.Max(1, height - EstimatedVerticalChromeInset(displayMode)),
             providerCount);
 
-        return grid.MeetsMinimumSlotSize;
+        if (grid.MeetsMinimumSlotSize)
+        {
+            return true;
+        }
+
+        // Full mode carries the richest details and can remain usable below its ideal slot height,
+        // while compact/mini already represent intentionally reduced-detail layouts.
+        return string.Equals(displayMode, FullDisplayMode, StringComparison.Ordinal) &&
+               CanRetainFullModeWithReducedCardHeight(width, height, providerCount, showCompactButtons);
+    }
+
+    private static bool CanRetainFullModeWithReducedCardHeight(
+        double width,
+        double height,
+        int providerCount,
+        bool showCompactButtons)
+    {
+        if (providerCount <= 0)
+        {
+            return false;
+        }
+
+        var availableWidth = Math.Max(1, width - EstimatedHorizontalChromeInset(FullDisplayMode, showCompactButtons));
+        var availableHeight = Math.Max(1, height - EstimatedVerticalChromeInset(FullDisplayMode));
+        var minimumCardWidth = GetMinimumCardWidth(FullDisplayMode);
+        var (marginWidth, marginHeight) = GetCardMargin(FullDisplayMode);
+        var maxColumns = Math.Clamp(
+            (int)Math.Floor((availableWidth + marginWidth) / (minimumCardWidth + marginWidth)),
+            1,
+            providerCount);
+
+        for (var columns = 1; columns <= maxColumns; columns++)
+        {
+            var rows = GetRowsForColumns(providerCount, columns);
+            var (cardSlotWidth, cardSlotHeight) = GetCardSlotDimensions(
+                availableWidth,
+                availableHeight,
+                columns,
+                rows,
+                marginWidth,
+                marginHeight);
+            if (cardSlotWidth >= minimumCardWidth && cardSlotHeight >= FullRetentionMinimumCardSlotHeight)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static CardGrid CalculateCardGrid(
@@ -868,9 +986,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         for (var columns = 1; columns <= maxColumns; columns++)
         {
-            var rows = (int)Math.Ceiling(providerCount / (double)columns);
-            var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
-            var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
+            var rows = GetRowsForColumns(providerCount, columns);
+            var (cardSlotWidth, cardSlotHeight) = GetCardSlotDimensions(
+                availableWidth,
+                availableHeight,
+                columns,
+                rows,
+                marginWidth,
+                marginHeight);
 
             if (cardSlotWidth < minimumCardWidth || cardSlotHeight < minimumCardSlotHeight)
             {
@@ -1337,6 +1460,22 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private static double GetIdealCardAspectRatio(string displayMode)
     {
         return GetMinimumCardWidth(displayMode) / GetMinimumCardSlotHeight(displayMode);
+    }
+
+    private static int GetRowsForColumns(int providerCount, int columns) =>
+        (int)Math.Ceiling(providerCount / (double)columns);
+
+    private static (double Width, double Height) GetCardSlotDimensions(
+        double availableWidth,
+        double availableHeight,
+        int columns,
+        int rows,
+        double marginWidth,
+        double marginHeight)
+    {
+        var cardSlotWidth = (availableWidth - (columns * marginWidth)) / columns;
+        var cardSlotHeight = (availableHeight - (rows * marginHeight)) / rows;
+        return (cardSlotWidth, cardSlotHeight);
     }
 
     private static double GetCardShapeScore(double aspectRatio, double idealAspectRatio)
