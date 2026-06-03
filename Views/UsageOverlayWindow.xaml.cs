@@ -514,6 +514,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         WindowRoundedCornersService.Apply(this);
         QueueResponsiveLayoutUpdate();
+        HideUnexpectedTitleBarButtons();
+        Dispatcher.BeginInvoke(HideUnexpectedTitleBarButtons, DispatcherPriority.Loaded);
     }
 
     private void WindowOnSourceInitialized(object? sender, EventArgs e)
@@ -527,6 +529,38 @@ public partial class UsageOverlayWindow : FluentAppWindow
             {
                 ApplyEdgeSnap(_currentSnapEdge, screen);
             }
+        }
+    }
+
+    private void HideUnexpectedTitleBarButtons()
+    {
+        if (Content is not DependencyObject root)
+        {
+            return;
+        }
+
+        HideUnexpectedTitleBarButtons(root);
+    }
+
+    private static void HideUnexpectedTitleBarButtons(DependencyObject node)
+    {
+        var childCount = VisualTreeHelper.GetChildrenCount(node);
+        for (var i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is FrameworkElement element)
+            {
+                var childType = element.GetType();
+                if (childType.Name == "TitleBarButton" &&
+                    childType.Namespace == "Wpf.Ui.Controls")
+                {
+                    element.Visibility = Visibility.Collapsed;
+                    element.Focusable = false;
+                    element.IsHitTestVisible = false;
+                }
+            }
+
+            HideUnexpectedTitleBarButtons(child);
         }
     }
 
