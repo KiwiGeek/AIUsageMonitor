@@ -412,19 +412,19 @@
                                             <Image HorizontalAlignment="Right"
                                                    VerticalAlignment="Stretch"
                                                    IsHitTestVisible="False"
-                                                   RenderTransformOrigin="0.72,0.38"
+                                                   RenderTransformOrigin="0.84,0.3"
                                                    Opacity="{Binding DataContext.WaifuBackgroundOpacity, RelativeSource={RelativeSource AncestorType=Window}}"
                                                    Source="{Binding BackgroundImage}"
                                                    Stretch="UniformToFill">
                                                 <Image.Style>
                                                     <Style TargetType="{x:Type Image}">
-                                                        <Setter Property="Margin" Value="-70,-46,-28,-22" />
+                                                        <Setter Property="Margin" Value="-118,-64,-22,-18" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Compact">
-                                                                <Setter Property="Margin" Value="-54,-34,-20,-16" />
+                                                                <Setter Property="Margin" Value="-88,-48,-16,-12" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="Mini">
-                                                                <Setter Property="Margin" Value="-38,-24,-14,-10" />
+                                                                <Setter Property="Margin" Value="-62,-34,-12,-8" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -440,19 +440,19 @@
                                                         <BeginStoryboard>
                                                             <Storyboard RepeatBehavior="Forever" AutoReverse="True">
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                                 From="1.24" To="1.34" Duration="0:0:40">
+                                                                                 From="1.36" To="1.48" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                                 From="1.24" To="1.34" Duration="0:0:40">
+                                                                                 From="1.36" To="1.48" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.X)"
-                                                                                 From="-64" To="-36" Duration="0:0:40">
+                                                                                 From="-118" To="-84" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                                 From="16" To="2" Duration="0:0:40">
+                                                                                 From="28" To="12" Duration="0:0:40">
                                                                     <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
                                                             </Storyboard>
