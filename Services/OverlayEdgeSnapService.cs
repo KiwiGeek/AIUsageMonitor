@@ -76,6 +76,99 @@ internal static class OverlayEdgeSnapService
         return IsPerimeterEdge(workArea, snapEdge, virtualBounds);
     }
 
+    /// <summary>
+    /// Stub until Windows exposes per-monitor taskbar placement. Assumes bottom taskbar for now.
+    /// </summary>
+    public static bool IsTaskbarAtBottom(WinForms.Screen screen)
+    {
+        _ = screen;
+        return true;
+    }
+
+    /// <summary>
+    /// Auto-hide is disabled on the bottom edge while the taskbar occupies the screen bottom,
+    /// because reveal would otherwise trigger on the work-area seam above the taskbar.
+    /// </summary>
+    public static bool IsSnapAutoHidePermitted(OverlayEdgeSnap snapEdge, WinForms.Screen screen)
+    {
+        if (snapEdge == OverlayEdgeSnap.None)
+        {
+            return false;
+        }
+
+        if (snapEdge == OverlayEdgeSnap.Bottom && IsTaskbarAtBottom(screen))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static Rect GetVirtualDesktopWorkingAreaPixels()
+    {
+        var bounds = GetVirtualDesktopWorkingAreaBounds();
+        return new Rect(bounds.Left, bounds.Top, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top);
+    }
+
+    public static bool IsPointerInSnapAutoHideRevealZone(
+        DrawingPoint pointerPixels,
+        OverlayEdgeSnap snapEdge,
+        WinForms.Screen snapScreen,
+        Rect dockedBoundsPixels,
+        double revealZonePixels)
+    {
+        if (snapEdge == OverlayEdgeSnap.None)
+        {
+            return false;
+        }
+
+        var monitorArea = WindowBoundsHelper.GetWorkingAreaPixels(snapScreen);
+        var virtualArea = GetVirtualDesktopWorkingAreaPixels();
+        var zone = Math.Max(1, revealZonePixels);
+        var dockRight = Math.Max(dockedBoundsPixels.Right, monitorArea.Right);
+
+        return snapEdge switch
+        {
+            OverlayEdgeSnap.Left when IsPerimeterEdge(monitorArea, snapEdge, ToVirtualBounds(virtualArea)) =>
+                pointerPixels.X >= monitorArea.Left &&
+                pointerPixels.X <= monitorArea.Left + zone &&
+                pointerPixels.Y >= monitorArea.Top &&
+                pointerPixels.Y <= monitorArea.Bottom,
+            OverlayEdgeSnap.Right when IsPerimeterEdge(monitorArea, snapEdge, ToVirtualBounds(virtualArea)) =>
+                pointerPixels.X <= dockRight &&
+                pointerPixels.X >= dockRight - zone &&
+                pointerPixels.Y >= monitorArea.Top &&
+                pointerPixels.Y <= monitorArea.Bottom,
+            OverlayEdgeSnap.Top when IsPerimeterEdge(monitorArea, snapEdge, ToVirtualBounds(virtualArea)) =>
+                pointerPixels.Y >= monitorArea.Top &&
+                pointerPixels.Y <= monitorArea.Top + zone &&
+                pointerPixels.X >= monitorArea.Left &&
+                pointerPixels.X <= monitorArea.Right,
+            OverlayEdgeSnap.Bottom when IsPerimeterEdge(monitorArea, snapEdge, ToVirtualBounds(virtualArea)) &&
+                IsSnapAutoHidePermitted(snapEdge, snapScreen) =>
+                IsPointerInBottomAutoHideRevealZone(pointerPixels, snapScreen, zone),
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Bottom reveal uses the physical screen bottom (over the taskbar), not the work-area seam.
+    /// </summary>
+    private static bool IsPointerInBottomAutoHideRevealZone(
+        DrawingPoint pointerPixels,
+        WinForms.Screen snapScreen,
+        double revealZonePixels)
+    {
+        var screenBounds = WindowBoundsHelper.GetBoundsPixels(snapScreen);
+        return pointerPixels.Y <= screenBounds.Bottom &&
+               pointerPixels.Y >= screenBounds.Bottom - revealZonePixels &&
+               pointerPixels.X >= screenBounds.Left &&
+               pointerPixels.X <= screenBounds.Right;
+    }
+
+    private static VirtualDesktopBounds ToVirtualBounds(Rect virtualArea) =>
+        new(virtualArea.Left, virtualArea.Top, virtualArea.Right, virtualArea.Bottom);
+
     private static VirtualDesktopBounds GetVirtualDesktopWorkingAreaBounds()
     {
         var left = double.PositiveInfinity;
@@ -182,16 +275,26 @@ internal static class OverlayEdgeSnapService
         Rect fullBoundsPixels,
         double visibleStripPixels)
     {
-        var docked = GetSnappedDockBoundsPixels(snapEdge, screen, fullBoundsPixels);
+        var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
         var visible = Math.Max(1, visibleStripPixels);
+
+        var dockRight = Math.Max(fullBoundsPixels.Right, workArea.Right);
 
         return snapEdge switch
         {
-            OverlayEdgeSnap.Left => new Rect(docked.Left, docked.Top, visible, docked.Height),
-            OverlayEdgeSnap.Right => new Rect(docked.Right - visible, docked.Top, visible, docked.Height),
-            OverlayEdgeSnap.Top => new Rect(docked.Left, docked.Top, docked.Width, visible),
-            OverlayEdgeSnap.Bottom => new Rect(docked.Left, docked.Bottom - visible, docked.Width, visible),
-            _ => docked
+            OverlayEdgeSnap.Left => new Rect(workArea.Left, workArea.Top, visible, workArea.Height),
+            OverlayEdgeSnap.Right => new Rect(
+                dockRight - visible,
+                workArea.Top,
+                visible,
+                workArea.Height),
+            OverlayEdgeSnap.Top => new Rect(workArea.Left, workArea.Top, workArea.Width, visible),
+            OverlayEdgeSnap.Bottom => new Rect(
+                workArea.Left,
+                workArea.Bottom - visible,
+                workArea.Width,
+                visible),
+            _ => GetSnappedDockBoundsPixels(snapEdge, screen, fullBoundsPixels)
         };
     }
 
