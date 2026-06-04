@@ -1,4 +1,5 @@
 using System.Windows;
+using DrawingPoint = System.Drawing.Point;
 using AIUsageMonitor.Models;
 using WinForms = System.Windows.Forms;
 
@@ -7,25 +8,45 @@ namespace AIUsageMonitor.Services;
 internal static class OverlayEdgeSnapService
 {
     private const double SnapThresholdPixels = 40;
+    private const double PerimeterTolerancePixels = 2;
 
     public static bool TryGetSnapEdge(
-        Rect proposedBoundsPixels,
+        DrawingPoint pointerPixels,
         out OverlayEdgeSnap snapEdge,
         out WinForms.Screen? screen)
     {
         snapEdge = OverlayEdgeSnap.None;
-        var centerX = (int)Math.Round(proposedBoundsPixels.Left + (proposedBoundsPixels.Width / 2));
-        var centerY = (int)Math.Round(proposedBoundsPixels.Top + (proposedBoundsPixels.Height / 2));
-        screen = WinForms.Screen.FromPoint(new System.Drawing.Point(centerX, centerY));
+        screen = WinForms.Screen.FromPoint(pointerPixels);
 
         var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
-        var distances = new Dictionary<OverlayEdgeSnap, double>
+        var virtualBounds = GetVirtualDesktopWorkingAreaBounds();
+        var distances = new Dictionary<OverlayEdgeSnap, double>();
+
+        if (IsPerimeterEdge(workArea, OverlayEdgeSnap.Left, virtualBounds))
         {
-            [OverlayEdgeSnap.Left] = Math.Abs(proposedBoundsPixels.Left - workArea.Left),
-            [OverlayEdgeSnap.Top] = Math.Abs(proposedBoundsPixels.Top - workArea.Top),
-            [OverlayEdgeSnap.Right] = Math.Abs(workArea.Right - proposedBoundsPixels.Right),
-            [OverlayEdgeSnap.Bottom] = Math.Abs(workArea.Bottom - proposedBoundsPixels.Bottom)
-        };
+            distances[OverlayEdgeSnap.Left] = Math.Abs(pointerPixels.X - workArea.Left);
+        }
+
+        if (IsPerimeterEdge(workArea, OverlayEdgeSnap.Top, virtualBounds))
+        {
+            distances[OverlayEdgeSnap.Top] = Math.Abs(pointerPixels.Y - workArea.Top);
+        }
+
+        if (IsPerimeterEdge(workArea, OverlayEdgeSnap.Right, virtualBounds))
+        {
+            distances[OverlayEdgeSnap.Right] = Math.Abs(workArea.Right - pointerPixels.X);
+        }
+
+        if (IsPerimeterEdge(workArea, OverlayEdgeSnap.Bottom, virtualBounds))
+        {
+            distances[OverlayEdgeSnap.Bottom] = Math.Abs(workArea.Bottom - pointerPixels.Y);
+        }
+
+        if (distances.Count == 0)
+        {
+            screen = null;
+            return false;
+        }
 
         var minDistance = distances.Values.Min();
         if (minDistance > SnapThresholdPixels)
@@ -43,6 +64,52 @@ internal static class OverlayEdgeSnapService
         return true;
     }
 
+    public static bool IsValidSnapEdge(WinForms.Screen screen, OverlayEdgeSnap snapEdge)
+    {
+        if (snapEdge == OverlayEdgeSnap.None)
+        {
+            return false;
+        }
+
+        var workArea = WindowBoundsHelper.GetWorkingAreaPixels(screen);
+        var virtualBounds = GetVirtualDesktopWorkingAreaBounds();
+        return IsPerimeterEdge(workArea, snapEdge, virtualBounds);
+    }
+
+    private static VirtualDesktopBounds GetVirtualDesktopWorkingAreaBounds()
+    {
+        var left = double.PositiveInfinity;
+        var top = double.PositiveInfinity;
+        var right = double.NegativeInfinity;
+        var bottom = double.NegativeInfinity;
+
+        foreach (var monitor in WinForms.Screen.AllScreens)
+        {
+            var area = WindowBoundsHelper.GetWorkingAreaPixels(monitor);
+            left = Math.Min(left, area.Left);
+            top = Math.Min(top, area.Top);
+            right = Math.Max(right, area.Right);
+            bottom = Math.Max(bottom, area.Bottom);
+        }
+
+        return new VirtualDesktopBounds(left, top, right, bottom);
+    }
+
+    private static bool IsPerimeterEdge(
+        Rect workArea,
+        OverlayEdgeSnap snapEdge,
+        VirtualDesktopBounds virtualBounds)
+    {
+        return snapEdge switch
+        {
+            OverlayEdgeSnap.Left => Math.Abs(workArea.Left - virtualBounds.Left) <= PerimeterTolerancePixels,
+            OverlayEdgeSnap.Top => Math.Abs(workArea.Top - virtualBounds.Top) <= PerimeterTolerancePixels,
+            OverlayEdgeSnap.Right => Math.Abs(workArea.Right - virtualBounds.Right) <= PerimeterTolerancePixels,
+            OverlayEdgeSnap.Bottom => Math.Abs(workArea.Bottom - virtualBounds.Bottom) <= PerimeterTolerancePixels,
+            _ => false
+        };
+    }
+
     private static int GetSnapEdgeTieBreakOrder(OverlayEdgeSnap snapEdge)
     {
         return snapEdge switch
@@ -53,18 +120,6 @@ internal static class OverlayEdgeSnapService
             OverlayEdgeSnap.Right => 3,
             _ => 4
         };
-    }
-
-    public static bool TryGetSnapEdge(Window window, out OverlayEdgeSnap snapEdge, out WinForms.Screen? screen)
-    {
-        if (!WindowBoundsHelper.TryGetScreenBoundsPixels(window, out var windowBounds))
-        {
-            snapEdge = OverlayEdgeSnap.None;
-            screen = null;
-            return false;
-        }
-
-        return TryGetSnapEdge(windowBounds, out snapEdge, out screen);
     }
 
     /// <summary>
@@ -177,4 +232,6 @@ internal static class OverlayEdgeSnapService
     {
         appBar.Unregister(window);
     }
+
+    private readonly record struct VirtualDesktopBounds(double Left, double Top, double Right, double Bottom);
 }

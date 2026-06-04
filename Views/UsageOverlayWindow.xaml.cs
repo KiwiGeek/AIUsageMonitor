@@ -43,8 +43,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private const double MiniMinimumVerticalChrome = 22;
     private const double FullMinimumCardSlotHeight = 265;
     private const double CompactMinimumCardSlotHeight = 100;
-    /// <summary>Compact cards with two quota rows need more than the floating compact minimum.</summary>
-    private const double CompactHorizontalStripCardSlotHeight = 128;
+    /// <summary>Landscape card slots when edge-snapped (width : height).</summary>
+    private const double SnappedCardIdealAspectRatio = 16.0 / 9.0;
     /// <summary>Minimal window padding on top/bottom dock (toolbar is on the right).</summary>
     private const double CompactHorizontalStripVerticalChrome = 12;
     private const double CompactHorizontalStripToolbarWidth = 48;
@@ -236,7 +236,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         {
             var screen = OverlayEdgeSnapService.FindScreenByDeviceName(placement?.SnapMonitorDeviceName)
                 ?? WindowBoundsHelper.GetScreenForWindow(this);
-            if (screen is not null)
+            if (screen is not null && OverlayEdgeSnapService.IsValidSnapEdge(screen, savedSnapEdge))
             {
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 ApplyEdgeSnap(savedSnapEdge, screen);
@@ -1026,7 +1026,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
             false);
     }
 
-    private static CardGrid CalculateCardGridFixedColumns(
+    private static CardGrid CalculateCardGridSnappedVerticalStrip(
         string displayMode,
         double availableHeight,
         int providerCount)
@@ -1037,16 +1037,54 @@ public partial class UsageOverlayWindow : FluentAppWindow
         var minimumCardSlotHeight = GetMinimumCardSlotHeight(displayMode);
         var rows = Math.Max(1, providerCount);
         var (_, marginHeight) = GetCardMargin(displayMode);
-        var cardSlotWidth = minimumCardWidth;
         var cardSlotHeight = Math.Floor((availableHeight - (rows * marginHeight)) / rows);
-        var meets = cardSlotHeight >= minimumCardSlotHeight;
+        cardSlotHeight = Math.Max(minimumCardSlotHeight, cardSlotHeight);
 
-        return new CardGrid(
-            columns,
-            rows,
-            cardSlotWidth,
-            Math.Max(minimumCardSlotHeight, cardSlotHeight),
-            meets);
+        var idealCardWidth = Math.Floor(cardSlotHeight * SnappedCardIdealAspectRatio);
+        var cardSlotWidth = Math.Max(minimumCardWidth, idealCardWidth);
+        if (cardSlotWidth > idealCardWidth + LayoutComparisonTolerance)
+        {
+            cardSlotHeight = Math.Max(
+                minimumCardSlotHeight,
+                Math.Floor(cardSlotWidth / SnappedCardIdealAspectRatio));
+        }
+
+        var meets = cardSlotWidth >= minimumCardWidth && cardSlotHeight >= minimumCardSlotHeight;
+        return new CardGrid(columns, rows, cardSlotWidth, cardSlotHeight, meets);
+    }
+
+    private static CardGrid CalculateCardGridSnappedHorizontalStrip(
+        string displayMode,
+        double availableWidth,
+        int providerCount)
+    {
+        availableWidth = Math.Max(1, availableWidth);
+        const int rows = 1;
+        var minimumCardWidth = GetMinimumCardWidth(displayMode);
+        var minimumCardSlotHeight = GetMinimumCardSlotHeight(displayMode);
+        var (marginWidth, marginHeight) = GetCardMargin(displayMode);
+
+        if (providerCount <= 0)
+        {
+            var emptyHeight = Math.Max(
+                minimumCardSlotHeight,
+                Math.Floor(availableWidth / SnappedCardIdealAspectRatio));
+            return new CardGrid(1, rows, availableWidth, emptyHeight, false);
+        }
+
+        var maxColumns = Math.Clamp(
+            (int)Math.Floor((availableWidth + marginWidth) / (minimumCardWidth + marginWidth)),
+            1,
+            providerCount);
+        var columns = Math.Min(providerCount, maxColumns);
+        var cardSlotWidth = Math.Floor((availableWidth - (columns * marginWidth)) / columns);
+        cardSlotWidth = Math.Max(minimumCardWidth, cardSlotWidth);
+
+        var idealCardHeight = Math.Floor(cardSlotWidth / SnappedCardIdealAspectRatio);
+        var cardSlotHeight = Math.Max(minimumCardSlotHeight, idealCardHeight);
+        var meets = cardSlotWidth >= minimumCardWidth && cardSlotHeight >= minimumCardSlotHeight;
+
+        return new CardGrid(columns, rows, cardSlotWidth, cardSlotHeight, meets);
     }
 
     private static CardGrid CalculateCardGridFixedRows(
@@ -1129,12 +1167,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
         var cardAreaHeight = Math.Max(1, workAreaDip.Height - verticalChrome);
 
         var grid = snapEdge is OverlayEdgeSnap.Left or OverlayEdgeSnap.Right
-            ? CalculateCardGridFixedColumns(displayMode, cardAreaHeight, providerCount)
-            : CalculateCardGridFixedRows(
-                displayMode,
-                cardAreaWidth,
-                providerCount,
-                CompactHorizontalStripCardSlotHeight);
+            ? CalculateCardGridSnappedVerticalStrip(displayMode, cardAreaHeight, providerCount)
+            : CalculateCardGridSnappedHorizontalStrip(displayMode, cardAreaWidth, providerCount);
 
         var windowDip = BuildSnappedWindowRectDip(snapEdge, workAreaDip, grid, displayMode, showCompactButtons);
         boundsPixels = WindowBoundsHelper.ConvertDipToScreenPixels(this, windowDip);
@@ -1339,7 +1373,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
         var columns = Math.Min(providerCount, maxColumns);
         var cardWidth = Math.Floor((availableWidth - (columns * marginWidth)) / columns);
         cardWidth = Math.Max(GetMinimumCardWidth(displayMode), cardWidth);
-        var cardSlotHeight = CompactHorizontalStripCardSlotHeight;
+        var cardSlotHeight = Math.Max(
+            GetMinimumCardSlotHeight(displayMode),
+            Math.Floor(cardWidth / SnappedCardIdealAspectRatio));
 
         CardSlotWidth = cardWidth;
         CardSlotHeight = cardSlotHeight;
@@ -1708,7 +1744,10 @@ public partial class UsageOverlayWindow : FluentAppWindow
             _dragFloatingHeightPixels);
 
         if (_snapToScreenEnabled &&
-            OverlayEdgeSnapService.TryGetSnapEdge(freeBounds, out var previewSnapEdge, out var screen) &&
+            OverlayEdgeSnapService.TryGetSnapEdge(
+                ToPointerScreenPixels(mouseScreen),
+                out var previewSnapEdge,
+                out var screen) &&
             screen is not null &&
             TryBuildSnappedBounds(previewSnapEdge, screen, out var previewBounds, out var previewLayout))
         {
@@ -1773,6 +1812,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
     }
 
+    private static System.Drawing.Point ToPointerScreenPixels(System.Windows.Point screenPoint) =>
+        new(
+            (int)Math.Round(screenPoint.X),
+            (int)Math.Round(screenPoint.Y));
+
     private Rect GetFloatingBoundsPixelsAtRelease(MouseButtonEventArgs e)
     {
         var mouseScreen = PointToScreen(e.GetPosition(this));
@@ -1786,20 +1830,25 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private void TryApplyEdgeSnapOnRelease(MouseButtonEventArgs e, bool hadSnapPreview)
     {
         var freeBounds = GetFloatingBoundsPixelsAtRelease(e);
+        var pointer = ToPointerScreenPixels(PointToScreen(e.GetPosition(this)));
 
         OverlayEdgeSnap snapEdge = OverlayEdgeSnap.None;
         WinForms.Screen? screen = null;
         if (_snapToScreenEnabled &&
-            OverlayEdgeSnapService.TryGetSnapEdge(freeBounds, out var detectedEdge, out var detectedScreen) &&
+            OverlayEdgeSnapService.TryGetSnapEdge(pointer, out var detectedEdge, out var detectedScreen) &&
             detectedScreen is not null)
         {
             snapEdge = detectedEdge;
             screen = detectedScreen;
         }
-        else if (_snapToScreenEnabled && _dragPreviewSnapEdge != OverlayEdgeSnap.None)
+        else if (_snapToScreenEnabled && hadSnapPreview && _dragPreviewSnapEdge != OverlayEdgeSnap.None)
         {
-            snapEdge = _dragPreviewSnapEdge;
-            screen = WindowBoundsHelper.GetScreenForWindow(this);
+            var previewScreen = WinForms.Screen.FromPoint(pointer);
+            if (OverlayEdgeSnapService.IsValidSnapEdge(previewScreen, _dragPreviewSnapEdge))
+            {
+                snapEdge = _dragPreviewSnapEdge;
+                screen = previewScreen;
+            }
         }
 
         if (snapEdge != OverlayEdgeSnap.None && screen is not null)
@@ -1827,6 +1876,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private void ApplyEdgeSnap(OverlayEdgeSnap snapEdge, WinForms.Screen screen)
     {
+        if (!OverlayEdgeSnapService.IsValidSnapEdge(screen, snapEdge))
+        {
+            return;
+        }
+
         _currentSnapEdge = snapEdge;
         _snapMonitorDeviceName = screen.DeviceName;
 
