@@ -13,6 +13,7 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
     private string _autoRefreshText = "Auto refresh every 20 minutes";
     private string _logSummaryText = "No recent errors";
     private string _errorMessage = string.Empty;
+    private bool _isErrorDismissed;
     private double _waifuBackgroundOpacity = 1;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -50,6 +51,11 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
         get => _errorMessage;
         private set
         {
+            if (!string.IsNullOrEmpty(value))
+            {
+                _isErrorDismissed = false;
+            }
+
             if (SetField(ref _errorMessage, value))
             {
                 OnPropertyChanged(nameof(HasError));
@@ -57,7 +63,21 @@ public sealed class UsageOverlayViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool IsErrorDismissed
+    {
+        get => _isErrorDismissed;
+        private set
+        {
+            if (SetField(ref _isErrorDismissed, value))
+            {
+                OnPropertyChanged(nameof(HasError));
+            }
+        }
+    }
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage) && !IsErrorDismissed;
+
+    public void DismissError() { IsErrorDismissed = true; }
 
     public bool HasProviders => Providers.Count > 0;
 

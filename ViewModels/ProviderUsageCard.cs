@@ -120,6 +120,8 @@ public sealed class ProviderUsageCard : INotifyPropertyChanged
 
     public MediaBrush OverallStatusBackground { get; }
 
+    public bool IsStatusBadgeVisible => OverallStatusLabel != "Healthy";
+
     public void SetChecking(bool isChecking)
     {
         IsChecking = isChecking;

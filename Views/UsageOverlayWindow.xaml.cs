@@ -540,6 +540,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
         SettingsRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    private void DismissErrorButtonOnClick(object sender, RoutedEventArgs e) =>
+        (DataContext as UsageOverlayViewModel)?.DismissError();
+
     private void LogsButtonOnClick(object sender, RoutedEventArgs e)
     {
         LogsRequested?.Invoke(this, EventArgs.Empty);

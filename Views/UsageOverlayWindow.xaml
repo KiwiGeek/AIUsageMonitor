@@ -102,6 +102,9 @@
                     <Setter Property="MinHeight" Value="0" />
                     <Setter Property="CornerRadius" Value="4" />
                 </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                </Trigger>
             </Style.Triggers>
         </Style>
 
@@ -124,6 +127,9 @@
                     <Setter Property="CornerRadius" Value="3" />
                     <Setter Property="local:RoundedCornerClip.ClipRadius" Value="3" />
                 </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}" />
+                </Trigger>
             </Style.Triggers>
         </Style>
 
@@ -164,7 +170,7 @@
     <Grid x:Name="WindowRoot">
         <Grid.ContextMenu>
             <ContextMenu>
-                <MenuItem Click="ShowMenuItemOnClick" Header="Show Seth's AI Usage Monitor" />
+                <MenuItem Click="HideButtonOnClick" Header="Hide" />
                 <MenuItem Click="RefreshMenuItemOnClick" Header="Refresh Now" />
                 <MenuItem Click="SettingsMenuItemOnClick" Header="Settings" />
                 <MenuItem Click="LogsMenuItemOnClick" Header="Logs" />
@@ -330,10 +336,21 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock FontSize="13"
-                                   Foreground="{StaticResource ErrorTextBrush}"
-                                   Text="{Binding ErrorMessage}"
-                                   TextWrapping="Wrap" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock FontSize="13" Foreground="{StaticResource ErrorTextBrush}"
+                                       Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
+                            <ui:Button Grid.Column="1"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Top"
+                                       Appearance="Transparent"
+                                       Icon="{ui:SymbolIcon Symbol=Dismiss16}"
+                                       Click="DismissErrorButtonOnClick"
+                                       ToolTip="Dismiss" />
+                        </Grid>
                     </Border>
 
                     <ScrollViewer x:Name="ProvidersScrollViewer"
@@ -455,7 +472,8 @@
                                                     <StackPanel Grid.Column="2" HorizontalAlignment="Right">
                                                         <Border Padding="9,4"
                                                                 Background="{Binding OverallStatusBackground}"
-                                                                CornerRadius="8">
+                                                                CornerRadius="8"
+                                                                Visibility="{Binding IsStatusBadgeVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                             <TextBlock FontSize="12"
                                                                        FontWeight="SemiBold"
                                                                        Foreground="{Binding OverallStatusBrush}"
@@ -545,7 +563,8 @@
                                                             Margin="10,0,0,0"
                                                             Padding="7,3"
                                                             Background="{Binding OverallStatusBackground}"
-                                                            CornerRadius="7">
+                                                            CornerRadius="7"
+                                                            Visibility="{Binding IsStatusBadgeVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                         <TextBlock FontSize="11"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="{Binding OverallStatusBrush}"
@@ -600,7 +619,7 @@
                                                            Foreground="{StaticResource CardTextPrimaryBrush}"
                                                            Text="{Binding SummaryText}"
                                                            TextTrimming="CharacterEllipsis" />
-                                                <ProgressBar Height="4"
+                                                <ProgressBar Height="6"
                                                              Margin="0,4,0,0"
                                                              Foreground="{Binding SummaryProgressBrush}"
                                                              Style="{StaticResource UsageProgressBarStyle}"
@@ -642,10 +661,16 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock FontSize="13"
-                                   Foreground="{StaticResource CardTextMutedBrush}"
-                                   Text="No providers enabled. Open Settings to enable one."
-                                   TextWrapping="Wrap" />
+                        <StackPanel>
+                            <TextBlock FontSize="13" Foreground="{StaticResource CardTextMutedBrush}"
+                                       Text="No providers enabled. Open Settings to enable one."
+                                       TextWrapping="Wrap" />
+                            <ui:Button Margin="0,10,0,0"
+                                       HorizontalAlignment="Left"
+                                       Appearance="Secondary"
+                                       Content="Open Settings"
+                                       Click="SettingsButtonOnClick" />
+                        </StackPanel>
                     </Border>
 
                     <Grid Grid.Row="2"
@@ -656,19 +681,19 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock FontSize="11"
-                                   Foreground="{StaticResource FooterTextBrush}"
+                        <TextBlock FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                    Text="{Binding SourcePathText}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="1"
                                    Margin="16,0,0,0"
-                                   FontSize="11"
-                                   Foreground="{StaticResource FooterTextBrush}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                    Text="{Binding LogSummaryText}" />
                         <TextBlock Grid.Column="2"
                                    Margin="16,0,0,0"
-                                   FontSize="11"
-                                   Foreground="{StaticResource FooterTextBrush}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                    Text="{Binding AutoRefreshText}" />
                     </Grid>
                 </Grid>

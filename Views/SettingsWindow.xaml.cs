@@ -315,15 +315,21 @@ public partial class SettingsWindow : FluentDialogWindow
 
     private void OverlaySnapDockOptionOnChecked(object sender, RoutedEventArgs e)
     {
-        if (sender == OverlaySnapReserveScreenSpaceCheckBox &&
-            OverlaySnapReserveScreenSpaceCheckBox.IsChecked == true)
+        if (OverlaySnapReserveScreenSpaceCheckBox.IsChecked == true)
         {
             OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked = false;
+            OverlaySnapAutoHideWhenSnappedCheckBox.IsEnabled = false;
         }
-        else if (sender == OverlaySnapAutoHideWhenSnappedCheckBox &&
-                 OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked == true)
+        else if (OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked == true)
         {
             OverlaySnapReserveScreenSpaceCheckBox.IsChecked = false;
+            OverlaySnapReserveScreenSpaceCheckBox.IsEnabled = false;
+        }
+        else
+        {
+            var snapEnabled = OverlaySnapToScreenCheckBox.IsChecked == true;
+            OverlaySnapReserveScreenSpaceCheckBox.IsEnabled = snapEnabled;
+            OverlaySnapAutoHideWhenSnappedCheckBox.IsEnabled = snapEnabled;
         }
     }
 
