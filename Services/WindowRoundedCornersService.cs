@@ -11,17 +11,26 @@ internal static class WindowRoundedCornersService
     private const int DwmwcpRound = 2;
     private const int DwmwcpRoundSmall = 3;
 
-    public static void Apply(Window window)
+    private const int DwmwcpDoNotRound = 1;
+
+    public static void Apply(Window window, bool squareCorners = false)
     {
         if (window is not FluentWindow fluentWindow)
         {
             return;
         }
 
-        var preferSmall = window.ActualHeight < 180 || window.ActualWidth < 420;
-        fluentWindow.WindowCornerPreference = preferSmall
-            ? WindowCornerPreference.RoundSmall
-            : WindowCornerPreference.Round;
+        if (squareCorners)
+        {
+            fluentWindow.WindowCornerPreference = WindowCornerPreference.DoNotRound;
+        }
+        else
+        {
+            var preferSmall = window.ActualHeight < 180 || window.ActualWidth < 420;
+            fluentWindow.WindowCornerPreference = preferSmall
+                ? WindowCornerPreference.RoundSmall
+                : WindowCornerPreference.Round;
+        }
 
         var handle = new WindowInteropHelper(window).Handle;
         if (handle == IntPtr.Zero)
@@ -29,7 +38,11 @@ internal static class WindowRoundedCornersService
             return;
         }
 
-        var preference = preferSmall ? DwmwcpRoundSmall : DwmwcpRound;
+        var preference = squareCorners
+            ? DwmwcpDoNotRound
+            : window.ActualHeight < 180 || window.ActualWidth < 420
+                ? DwmwcpRoundSmall
+                : DwmwcpRound;
         _ = NativeMethods.DwmSetWindowAttribute(
             handle,
             DwmwaWindowCornerPreference,

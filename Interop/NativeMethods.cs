@@ -61,6 +61,26 @@ internal static class NativeMethods
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int pvAttribute, int cbAttribute);
 
+    public const int DwmwaBorderColor = 34;
+
+    /// <summary>Suppresses the Win11 DWM-drawn window border.</summary>
+    public const int DwmwaColorNone = unchecked((int)0xFFFFFFFE);
+
+    /// <summary>Restores the system default window border color.</summary>
+    public const int DwmwaColorDefault = unchecked((int)0xFFFFFFFF);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref Margins margins);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Margins
+    {
+        public int Left;
+        public int Right;
+        public int Top;
+        public int Bottom;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct AppBarData
     {

@@ -185,6 +185,10 @@
                         <DataTrigger Binding="{Binding IsHorizontalDock, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                             <Setter Property="Padding" Value="8,4,4,4" />
                         </DataTrigger>
+                        <DataTrigger Binding="{Binding IsSnapReservedDock, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Background" Value="{DynamicResource ApplicationBackgroundBrush}" />
+                        </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </Border.Style>

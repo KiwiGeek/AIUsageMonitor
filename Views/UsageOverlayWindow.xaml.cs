@@ -21,6 +21,7 @@ using AIUsageMonitor.ViewModels;
 using System.Windows.Interop;
 using WpfMenuItem = System.Windows.Controls.MenuItem;
 using WinForms = System.Windows.Forms;
+using AIUsageMonitor.Interop;
 
 namespace AIUsageMonitor.Views;
 
@@ -100,6 +101,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
         typeof(UsageOverlayWindow),
         new PropertyMetadata(false));
 
+    public static readonly DependencyProperty IsSnapReservedDockProperty = DependencyProperty.Register(
+        nameof(IsSnapReservedDock),
+        typeof(bool),
+        typeof(UsageOverlayWindow),
+        new PropertyMetadata(false));
+
     private INotifyCollectionChanged? _providersCollection;
     private bool _responsiveLayoutQueued;
     private bool _snappedLayoutRefreshQueued;
@@ -123,6 +130,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private bool _snapAutoHideRepinQueued;
     private ResizeMode? _snapAutoHideSavedResizeMode;
     private readonly SnapAutoHideFrameService.SavedFrameState _snapAutoHideFrameState = new();
+    private readonly SnapReservedDockFrameService.SavedFrameState _snapReservedDockFrameState = new();
     private double _snapAutoHideSavedMinWidth;
     private double _snapAutoHideSavedMinHeight;
     private double _snapAutoHideSavedMaxWidth = double.PositiveInfinity;
@@ -380,6 +388,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
         private set => SetValue(ShowSideToolbarProperty, value);
     }
 
+    public bool IsSnapReservedDock
+    {
+        get => (bool)GetValue(IsSnapReservedDockProperty);
+        private set => SetValue(IsSnapReservedDockProperty, value);
+    }
+
     private bool ComputeShowSideToolbar() =>
         IsHorizontalDock ||
         (ActualWidth >= MiniWidthBreakpoint &&
@@ -416,7 +430,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
         var chromeEdge = GetChromeSnapEdge();
         IsHorizontalDock = chromeEdge is OverlayEdgeSnap.Top or OverlayEdgeSnap.Bottom;
         ShowSideToolbar = ComputeShowSideToolbar();
+        SyncSnapReservedDockChromeState();
     }
+
+    private void SyncSnapReservedDockChromeState()
+    {
+        IsSnapReservedDock = _snapReserveScreenSpace && _currentSnapEdge != OverlayEdgeSnap.None;
+        SnapReservedDockFrameService.SyncHostFrame(this, _snapReservedDockFrameState, IsSnapReservedDock);
+        WindowRoundedCornersService.Apply(this, squareCorners: IsSnapReservedDock);
+    }
+
+    private bool ShouldSpanMonitorForReservedSnap(OverlayEdgeSnap snapEdge) =>
+        _snapReserveScreenSpace && snapEdge != OverlayEdgeSnap.None;
 
     private void CancelQueuedLayoutUpdates()
     {
@@ -559,8 +584,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private void WindowOnLoaded(object sender, RoutedEventArgs e)
     {
-        WindowRoundedCornersService.Apply(this);
-        WindowResizeInteropService.EnsureResizableHostFrame(this);
+        SyncSnapReservedDockChromeState();
         QueueResponsiveLayoutUpdate();
         HideUnexpectedTitleBarButtons();
         Dispatcher.BeginInvoke(HideUnexpectedTitleBarButtons, DispatcherPriority.Loaded);
@@ -568,8 +592,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private void WindowOnSourceInitialized(object? sender, EventArgs e)
     {
-        WindowRoundedCornersService.Apply(this);
-        WindowResizeInteropService.EnsureResizableHostFrame(this);
+        SyncSnapReservedDockChromeState();
         AttachSystemSizeMoveTracking();
 
         if (_snapToScreenEnabled && _currentSnapEdge != OverlayEdgeSnap.None)
@@ -638,7 +661,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
-        WindowRoundedCornersService.Apply(this);
+        if (IsSnapReservedDock)
+        {
+            SyncSnapReservedDockChromeState();
+        }
+        else
+        {
+            WindowRoundedCornersService.Apply(this, squareCorners: false);
+        }
 
         if (_isManualDragging)
         {
@@ -825,7 +855,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         CardSlotHeight = layout.CardSlotHeight;
         ApplyProvidersListLayout(layout);
         Dispatcher.BeginInvoke(
-            () => WindowRoundedCornersService.Apply(this),
+            () => WindowRoundedCornersService.Apply(this, squareCorners: IsSnapReservedDock),
             DispatcherPriority.Loaded);
     }
 
@@ -1197,17 +1227,48 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private static Rect BuildSnappedWindowRectDip(
         OverlayEdgeSnap snapEdge,
         Rect workAreaDip,
+        Rect screenBoundsDip,
         CardGrid grid,
         string displayMode,
-        bool showCompactButtons)
+        bool showCompactButtons,
+        bool spanMonitorForReservedSnap)
     {
-        var horizontalChrome = GetSnappedHorizontalChromeInset(snapEdge, displayMode, showCompactButtons);
-        var verticalChrome = GetSnappedVerticalChromeInset(snapEdge, displayMode);
+        var reservedDock = spanMonitorForReservedSnap;
+        var horizontalChrome = GetSnappedHorizontalChromeInset(snapEdge, displayMode, showCompactButtons, reservedDock);
+        var verticalChrome = GetSnappedVerticalChromeInset(snapEdge, displayMode, reservedDock);
         var (marginWidth, marginHeight) = GetCardMargin(displayMode);
         var cardHostWidth = (grid.Columns * grid.CardSlotWidth) + (grid.Columns * marginWidth);
         var cardHostHeight = (grid.Rows * grid.CardSlotHeight) + (grid.Rows * marginHeight);
         var outerWidth = horizontalChrome + cardHostWidth;
         var outerHeight = verticalChrome + cardHostHeight;
+
+        if (spanMonitorForReservedSnap)
+        {
+            return snapEdge switch
+            {
+                OverlayEdgeSnap.Left => new Rect(
+                    workAreaDip.Left,
+                    screenBoundsDip.Top,
+                    outerWidth,
+                    screenBoundsDip.Height),
+                OverlayEdgeSnap.Right => new Rect(
+                    workAreaDip.Right - outerWidth,
+                    screenBoundsDip.Top,
+                    outerWidth,
+                    screenBoundsDip.Height),
+                OverlayEdgeSnap.Top => new Rect(
+                    screenBoundsDip.Left,
+                    workAreaDip.Top,
+                    screenBoundsDip.Width,
+                    outerHeight),
+                OverlayEdgeSnap.Bottom => new Rect(
+                    screenBoundsDip.Left,
+                    workAreaDip.Bottom - outerHeight,
+                    screenBoundsDip.Width,
+                    outerHeight),
+                _ => workAreaDip
+            };
+        }
 
         return snapEdge switch
         {
@@ -1230,18 +1291,35 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
         var providerCount = ProvidersList.Items.Count;
         var workAreaDip = WindowBoundsHelper.GetWorkingAreaDip(this, screen);
+        var screenBoundsDip = WindowBoundsHelper.ConvertScreenPixelsToDip(
+            this,
+            WindowBoundsHelper.GetBoundsPixels(screen));
+        var spanMonitor = ShouldSpanMonitorForReservedSnap(snapEdge);
         var displayMode = GetSnappedDisplayMode(snapEdge, workAreaDip, providerCount);
         var showCompactButtons = displayMode == CompactDisplayMode && providerCount == 0;
-        var horizontalChrome = GetSnappedHorizontalChromeInset(snapEdge, displayMode, showCompactButtons);
-        var verticalChrome = GetSnappedVerticalChromeInset(snapEdge, displayMode);
-        var cardAreaWidth = Math.Max(1, workAreaDip.Width - horizontalChrome);
-        var cardAreaHeight = Math.Max(1, workAreaDip.Height - verticalChrome);
+        var horizontalChrome = GetSnappedHorizontalChromeInset(snapEdge, displayMode, showCompactButtons, spanMonitor);
+        var verticalChrome = GetSnappedVerticalChromeInset(snapEdge, displayMode, spanMonitor);
+        var cardSpanWidth = spanMonitor && snapEdge is OverlayEdgeSnap.Top or OverlayEdgeSnap.Bottom
+            ? Math.Max(1, screenBoundsDip.Width - CompactHorizontalStripToolbarWidth)
+            : workAreaDip.Width;
+        var cardSpanHeight = spanMonitor && snapEdge is OverlayEdgeSnap.Left or OverlayEdgeSnap.Right
+            ? screenBoundsDip.Height
+            : workAreaDip.Height;
+        var cardAreaWidth = Math.Max(1, cardSpanWidth - horizontalChrome);
+        var cardAreaHeight = Math.Max(1, cardSpanHeight - verticalChrome);
 
         var grid = snapEdge is OverlayEdgeSnap.Left or OverlayEdgeSnap.Right
             ? CalculateCardGridSnappedVerticalStrip(displayMode, cardAreaHeight, providerCount)
             : CalculateCardGridSnappedHorizontalStrip(displayMode, cardAreaWidth, providerCount);
 
-        var windowDip = BuildSnappedWindowRectDip(snapEdge, workAreaDip, grid, displayMode, showCompactButtons);
+        var windowDip = BuildSnappedWindowRectDip(
+            snapEdge,
+            workAreaDip,
+            screenBoundsDip,
+            grid,
+            displayMode,
+            showCompactButtons,
+            spanMonitor);
         boundsPixels = WindowBoundsHelper.ConvertDipToScreenPixels(this, windowDip);
         layout = new ResponsiveLayout(
             displayMode,
@@ -1481,16 +1559,22 @@ public partial class UsageOverlayWindow : FluentAppWindow
             return;
         }
 
-        var verticalChrome = GetSnappedVerticalChromeInset(snapEdge, displayMode);
+        var reservedDock = ShouldSpanMonitorForReservedSnap(snapEdge);
+        var verticalChrome = GetSnappedVerticalChromeInset(snapEdge, displayMode, reservedDock);
         var outerHeightDip = verticalChrome + cardSlotHeight + marginHeight;
         var workAreaDip = WindowBoundsHelper.GetWorkingAreaDip(this, screen);
+        var screenBoundsDip = WindowBoundsHelper.ConvertScreenPixelsToDip(
+            this,
+            WindowBoundsHelper.GetBoundsPixels(screen));
+        var spanWidth = reservedDock ? screenBoundsDip.Width : workAreaDip.Width;
+        var spanLeft = reservedDock ? screenBoundsDip.Left : workAreaDip.Left;
         var windowDip = snapEdge switch
         {
-            OverlayEdgeSnap.Top => new Rect(workAreaDip.Left, workAreaDip.Top, workAreaDip.Width, outerHeightDip),
+            OverlayEdgeSnap.Top => new Rect(spanLeft, workAreaDip.Top, spanWidth, outerHeightDip),
             OverlayEdgeSnap.Bottom => new Rect(
-                workAreaDip.Left,
+                spanLeft,
                 workAreaDip.Bottom - outerHeightDip,
-                workAreaDip.Width,
+                spanWidth,
                 outerHeightDip),
             _ => new Rect(Left, Top, Width, outerHeightDip)
         };
@@ -1498,11 +1582,14 @@ public partial class UsageOverlayWindow : FluentAppWindow
         ApplyBoundsPixels(WindowBoundsHelper.ConvertDipToScreenPixels(this, windowDip));
     }
 
-    private static double GetSnappedVerticalChromeInset(OverlayEdgeSnap snapEdge, string displayMode)
+    private static double GetSnappedVerticalChromeInset(
+        OverlayEdgeSnap snapEdge,
+        string displayMode,
+        bool reservedDock = false)
     {
         if (snapEdge is OverlayEdgeSnap.Top or OverlayEdgeSnap.Bottom)
         {
-            return CompactHorizontalStripVerticalChrome;
+            return reservedDock ? 0 : CompactHorizontalStripVerticalChrome;
         }
 
         return EstimatedVerticalChromeInset(displayMode);
@@ -1511,11 +1598,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private static double GetSnappedHorizontalChromeInset(
         OverlayEdgeSnap snapEdge,
         string displayMode,
-        bool showCompactButtons)
+        bool showCompactButtons,
+        bool reservedDock = false)
     {
         if (snapEdge is OverlayEdgeSnap.Top or OverlayEdgeSnap.Bottom)
         {
-            return CompactHorizontalStripHorizontalChromeInset;
+            return reservedDock ? 0 : CompactHorizontalStripHorizontalChromeInset;
         }
 
         return EstimatedHorizontalChromeInset(displayMode, showCompactButtons);
@@ -1998,8 +2086,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
                 _snappedFullBoundsPixels = GetSnappedDockBoundsPixels(screen, boundsPixels);
             }
 
+            SyncSnapReservedDockChromeState();
             ApplySnapScreenIntegration(snapEdge, screen);
-            WindowResizeInteropService.EnsureResizableHostFrame(this);
         }
         finally
         {
@@ -2076,6 +2164,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
         var screen = GetSnapMonitorScreen();
         if (screen is null)
         {
+            return;
+        }
+
+        if (ShouldSpanMonitorForReservedSnap(_currentSnapEdge))
+        {
+            ApplyEdgeSnap(_currentSnapEdge, screen);
             return;
         }
 
