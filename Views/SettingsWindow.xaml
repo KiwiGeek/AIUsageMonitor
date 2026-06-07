@@ -74,10 +74,7 @@
                                 BorderBrush="{DynamicResource ControlElevationBorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8">
-                            <ScrollViewer MaxHeight="380"
-                                          HorizontalScrollBarVisibility="Disabled"
-                                          VerticalScrollBarVisibility="Auto">
-                                <StackPanel>
+                            <StackPanel>
                                     <Border Padding="12"
                                             BorderBrush="{DynamicResource ControlElevationBorderBrush}"
                                             BorderThickness="0,0,0,1">
@@ -267,8 +264,7 @@
                                                        Content="Setup" />
                                         </Grid>
                                     </Border>
-                                </StackPanel>
-                            </ScrollViewer>
+                            </StackPanel>
                         </Border>
                     </StackPanel>
 
@@ -357,7 +353,7 @@
                     <TextBlock x:Name="ValidationTextBlock"
                                Margin="0,16,0,0"
                                FontSize="12"
-                               Foreground="#FCA5A5"
+                               Foreground="{StaticResource ErrorTextBrush}"
                                TextWrapping="Wrap" />
                 </StackPanel>
             </ScrollViewer>

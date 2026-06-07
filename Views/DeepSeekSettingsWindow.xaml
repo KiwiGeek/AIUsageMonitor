@@ -89,7 +89,7 @@
                            Text="Used as 100% for the credit bar. Auto-detected from the highest balance seen — set this manually if the auto-detected value is too low." />
                 <TextBlock Margin="0,6,0,0"
                            FontSize="12"
-                           Foreground="#FCA5A5"
+                           Foreground="{StaticResource ErrorTextBrush}"
                            TextWrapping="Wrap"
                            Text="{Binding DeepSeekPeakValidationMessage}" />
             </StackPanel>
