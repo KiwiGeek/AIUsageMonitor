@@ -282,9 +282,35 @@
                                ToolTip="Logs" />
                     <ui:Button Margin="6,0,0,0"
                                Appearance="Secondary"
+                               Click="MinimizeButtonOnClick"
+                               Icon="{ui:SymbolIcon Symbol=WindowMinimize24}"
+                               ToolTip="Minimize">
+                        <ui:Button.Style>
+                            <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowMinimizeButton, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:Button.Style>
+                    </ui:Button>
+                    <ui:Button Margin="6,0,0,0"
+                               Appearance="Secondary"
                                Click="HideButtonOnClick"
-                               Icon="{ui:SymbolIcon Symbol=Dismiss24}"
-                               ToolTip="Hide" />
+                               Icon="{ui:SymbolIcon Symbol=Dismiss24}">
+                        <ui:Button.Style>
+                            <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                <Setter Property="ToolTip" Value="Hide" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowMinimizeButton, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="ToolTip" Value="Exit" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:Button.Style>
+                    </ui:Button>
                 </StackPanel>
             </Grid>
 
@@ -733,9 +759,35 @@
                            ToolTip="Logs" />
                 <ui:Button Margin="0,4,0,0"
                            Appearance="Secondary"
+                           Click="MinimizeButtonOnClick"
+                           Icon="{ui:SymbolIcon Symbol=WindowMinimize24}"
+                           ToolTip="Minimize">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ShowMinimizeButton, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                </ui:Button>
+                <ui:Button Margin="0,4,0,0"
+                           Appearance="Secondary"
                            Click="HideButtonOnClick"
-                           Icon="{ui:SymbolIcon Symbol=Dismiss24}"
-                           ToolTip="Hide" />
+                           Icon="{ui:SymbolIcon Symbol=Dismiss24}">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Setter Property="ToolTip" Value="Hide" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ShowMinimizeButton, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                    <Setter Property="ToolTip" Value="Exit" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                </ui:Button>
             </StackPanel>
             </Grid>
         </Border>

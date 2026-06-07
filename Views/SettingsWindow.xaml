@@ -307,6 +307,29 @@
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                    Text="Collapses to the screen edge until the pointer moves nearby. Mutually exclusive with 'Reserve screen space'."
                                    TextWrapping="Wrap" />
+                        <CheckBox x:Name="CloseToSystemTrayCheckBox"
+                                  Margin="0,16,0,0"
+                                  Content="Close to system tray"
+                                  FontSize="13"
+                                  Checked="CloseToSystemTrayOptionOnChanged"
+                                  Unchecked="CloseToSystemTrayOptionOnChanged" />
+                        <TextBlock Margin="24,4,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                   Text="The close button hides the overlay to the system tray instead of exiting."
+                                   TextWrapping="Wrap" />
+                        <StackPanel x:Name="MinimizeToTrayPanel"
+                                    Margin="0,8,0,0"
+                                    Visibility="Collapsed">
+                            <CheckBox x:Name="MinimizeToSystemTrayCheckBox"
+                                      Content="Minimize to system tray"
+                                      FontSize="13" />
+                            <TextBlock Margin="24,4,0,0"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                       Text="The minimize button hides to the tray. When unchecked, it minimizes to the taskbar."
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
                     </StackPanel>
 
                     <Separator Margin="0,18,0,16"/>

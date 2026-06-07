@@ -46,6 +46,10 @@ public sealed class AppSettings
 
     public bool OverlaySnapAutoHideWhenSnappedEnabled { get; set; }
 
+    public bool CloseToSystemTray { get; set; } = true;
+
+    public bool MinimizeToSystemTray { get; set; } = true;
+
     public OverlayWindowPlacement OverlayWindowPlacement { get; set; } = new();
 
     public AppSettings Clone()
@@ -69,6 +73,8 @@ public sealed class AppSettings
             OverlaySnapToScreenEnabled = OverlaySnapToScreenEnabled,
             OverlaySnapReserveScreenSpaceEnabled = OverlaySnapReserveScreenSpaceEnabled,
             OverlaySnapAutoHideWhenSnappedEnabled = OverlaySnapAutoHideWhenSnappedEnabled,
+            CloseToSystemTray = CloseToSystemTray,
+            MinimizeToSystemTray = MinimizeToSystemTray,
             OverlayWindowPlacement = OverlayWindowPlacement?.Clone() ?? new OverlayWindowPlacement()
         };
     }

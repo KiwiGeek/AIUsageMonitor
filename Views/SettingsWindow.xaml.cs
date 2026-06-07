@@ -72,6 +72,9 @@ public partial class SettingsWindow : FluentDialogWindow
         OverlaySnapReserveScreenSpaceCheckBox.IsChecked = Settings.OverlaySnapReserveScreenSpaceEnabled;
         OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked = Settings.OverlaySnapAutoHideWhenSnappedEnabled;
         UpdateOverlaySnapDockOptionsEnabled();
+        CloseToSystemTrayCheckBox.IsChecked = Settings.CloseToSystemTray;
+        MinimizeToSystemTrayCheckBox.IsChecked = Settings.MinimizeToSystemTray;
+        UpdateMinimizeToTrayVisibility();
         WaifuSquadCheckBox.IsChecked = Settings.WaifuSquadEnabled;
         WaifuOpacitySlider.Value = Math.Round(Settings.WaifuSquadOpacity * 100);
         WaifuOpacitySlider.ValueChanged += WaifuOpacitySliderOnValueChanged;
@@ -221,6 +224,8 @@ public partial class SettingsWindow : FluentDialogWindow
         Settings.OverlaySnapToScreenEnabled = OverlaySnapToScreenCheckBox.IsChecked == true;
         Settings.OverlaySnapReserveScreenSpaceEnabled = OverlaySnapReserveScreenSpaceCheckBox.IsChecked == true;
         Settings.OverlaySnapAutoHideWhenSnappedEnabled = OverlaySnapAutoHideWhenSnappedCheckBox.IsChecked == true;
+        Settings.CloseToSystemTray = CloseToSystemTrayCheckBox.IsChecked == true;
+        Settings.MinimizeToSystemTray = MinimizeToSystemTrayCheckBox.IsChecked == true;
         Settings.WaifuSquadEnabled = WaifuSquadCheckBox.IsChecked == true;
         Settings.WaifuSquadOpacity = WaifuOpacitySlider.Value / 100d;
         MergeSavedCursorDashboardLogin();
@@ -338,6 +343,17 @@ public partial class SettingsWindow : FluentDialogWindow
         var snapEnabled = OverlaySnapToScreenCheckBox.IsChecked == true;
         OverlaySnapReserveScreenSpaceCheckBox.IsEnabled = snapEnabled;
         OverlaySnapAutoHideWhenSnappedCheckBox.IsEnabled = snapEnabled;
+    }
+
+    private void CloseToSystemTrayOptionOnChanged(object sender, RoutedEventArgs e)
+    {
+        UpdateMinimizeToTrayVisibility();
+    }
+
+    private void UpdateMinimizeToTrayVisibility()
+    {
+        var closeToTray = CloseToSystemTrayCheckBox.IsChecked == true;
+        MinimizeToTrayPanel.Visibility = closeToTray ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void MergeSavedCursorDashboardLogin()
