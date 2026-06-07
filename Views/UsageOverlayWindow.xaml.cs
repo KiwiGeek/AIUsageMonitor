@@ -179,6 +179,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
         Loaded += WindowOnLoaded;
         SourceInitialized += WindowOnSourceInitialized;
         SizeChanged += WindowOnSizeChanged;
+        StateChanged += WindowOnStateChanged;
         MouseEnter += WindowOnMouseEnter;
         DataContextChanged += WindowOnDataContextChanged;
         PreviewMouseLeftButtonUp += WindowOnPreviewMouseLeftButtonUp;
@@ -537,9 +538,24 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private void MinimizeButtonOnClick(object sender, RoutedEventArgs e)
     {
         if (_minimizeToSystemTray)
+        {
             Hide();
+        }
         else
+        {
+            // Topmost windows resist minimization — the OS immediately restores them.
+            // Clear Topmost first; StateChanged restores it when the window comes back.
+            Topmost = false;
             WindowState = WindowState.Minimized;
+        }
+    }
+
+    private void WindowOnStateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState != WindowState.Minimized && !_closeToSystemTray && !_minimizeToSystemTray)
+        {
+            Topmost = true;
+        }
     }
 
     private void ShowMenuItemOnClick(object sender, RoutedEventArgs e)
@@ -696,6 +712,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private void WindowOnSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        if (WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
         if (IsSnapAutoHideCollapsed())
         {
             QueueRepinCollapsedSnapBounds();
