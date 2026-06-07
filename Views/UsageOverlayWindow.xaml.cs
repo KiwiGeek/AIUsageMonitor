@@ -107,6 +107,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
         typeof(UsageOverlayWindow),
         new PropertyMetadata(false));
 
+    public static readonly DependencyProperty ShowMinimizeButtonProperty = DependencyProperty.Register(
+        nameof(ShowMinimizeButton),
+        typeof(bool),
+        typeof(UsageOverlayWindow),
+        new PropertyMetadata(false));
+
     private INotifyCollectionChanged? _providersCollection;
     private bool _responsiveLayoutQueued;
     private bool _snappedLayoutRefreshQueued;
@@ -124,6 +130,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private bool _snapToScreenEnabled = true;
     private bool _snapReserveScreenSpace;
     private bool _snapAutoHideWhenSnapped;
+    private bool _closeToSystemTray = true;
+    private bool _minimizeToSystemTray = true;
     private bool _isSnapAutoHideExpanded = true;
     private bool _snapAutoHideMinSizeOverridden;
     private bool _snapAutoHideChromeSuppressed;
@@ -216,10 +224,20 @@ public partial class UsageOverlayWindow : FluentAppWindow
             RefreshSnappedScreenIntegration();
         }
 
+        _closeToSystemTray = settings.CloseToSystemTray;
+        _minimizeToSystemTray = settings.MinimizeToSystemTray;
+        ApplyWindowBehaviorSettings();
+
         if (DataContext is UsageOverlayViewModel viewModel)
         {
             viewModel.ApplyWaifuAppearance(settings.WaifuSquadEnabled, settings.WaifuSquadOpacity);
         }
+    }
+
+    private void ApplyWindowBehaviorSettings()
+    {
+        ShowMinimizeButton = !_closeToSystemTray;
+        ShowInTaskbar = !_closeToSystemTray && !_minimizeToSystemTray;
     }
 
     public void ApplyStartupPlacement(OverlayWindowPlacement? placement)
@@ -394,6 +412,12 @@ public partial class UsageOverlayWindow : FluentAppWindow
         private set => SetValue(IsSnapReservedDockProperty, value);
     }
 
+    public bool ShowMinimizeButton
+    {
+        get => (bool)GetValue(ShowMinimizeButtonProperty);
+        private set => SetValue(ShowMinimizeButtonProperty, value);
+    }
+
     private bool ComputeShowSideToolbar() =>
         IsHorizontalDock ||
         (ActualWidth >= MiniWidthBreakpoint &&
@@ -501,7 +525,18 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private void HideButtonOnClick(object sender, RoutedEventArgs e)
     {
-        Hide();
+        if (_closeToSystemTray)
+            Hide();
+        else
+            ExitRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void MinimizeButtonOnClick(object sender, RoutedEventArgs e)
+    {
+        if (_minimizeToSystemTray)
+            Hide();
+        else
+            WindowState = WindowState.Minimized;
     }
 
     private void ShowMenuItemOnClick(object sender, RoutedEventArgs e)
