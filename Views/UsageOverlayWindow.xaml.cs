@@ -238,6 +238,9 @@ public partial class UsageOverlayWindow : FluentAppWindow
     {
         ShowMinimizeButton = !_closeToSystemTray;
         ShowInTaskbar = !_closeToSystemTray && !_minimizeToSystemTray;
+        var hideTooltip = _closeToSystemTray ? "Hide" : "Exit";
+        if (TopHideButton is not null) TopHideButton.ToolTip = hideTooltip;
+        if (SideHideButton is not null) SideHideButton.ToolTip = hideTooltip;
     }
 
     public void ApplyStartupPlacement(OverlayWindowPlacement? placement)
