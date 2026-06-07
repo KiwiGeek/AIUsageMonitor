@@ -336,10 +336,21 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock FontSize="13"
-                                   Foreground="#FCA5A5"
-                                   Text="{Binding ErrorMessage}"
-                                   TextWrapping="Wrap" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock FontSize="13" Foreground="#FCA5A5"
+                                       Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
+                            <ui:Button Grid.Column="1"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Top"
+                                       Appearance="Transparent"
+                                       Icon="{ui:SymbolIcon Symbol=Dismiss16}"
+                                       Click="DismissErrorButtonOnClick"
+                                       ToolTip="Dismiss" />
+                        </Grid>
                     </Border>
 
                     <ScrollViewer x:Name="ProvidersScrollViewer"
@@ -461,7 +472,8 @@
                                                     <StackPanel Grid.Column="2" HorizontalAlignment="Right">
                                                         <Border Padding="9,4"
                                                                 Background="{Binding OverallStatusBackground}"
-                                                                CornerRadius="8">
+                                                                CornerRadius="8"
+                                                                Visibility="{Binding IsStatusBadgeVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                             <TextBlock FontSize="12"
                                                                        FontWeight="SemiBold"
                                                                        Foreground="{Binding OverallStatusBrush}"
@@ -551,7 +563,8 @@
                                                             Margin="10,0,0,0"
                                                             Padding="7,3"
                                                             Background="{Binding OverallStatusBackground}"
-                                                            CornerRadius="7">
+                                                            CornerRadius="7"
+                                                            Visibility="{Binding IsStatusBadgeVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                         <TextBlock FontSize="11"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="{Binding OverallStatusBrush}"
@@ -648,10 +661,16 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock FontSize="13"
-                                   Foreground="#A8AFBA"
-                                   Text="No providers enabled. Open Settings to enable one."
-                                   TextWrapping="Wrap" />
+                        <StackPanel>
+                            <TextBlock FontSize="13" Foreground="#A8AFBA"
+                                       Text="No providers enabled. Open Settings to enable one."
+                                       TextWrapping="Wrap" />
+                            <ui:Button Margin="0,10,0,0"
+                                       HorizontalAlignment="Left"
+                                       Appearance="Secondary"
+                                       Content="Open Settings"
+                                       Click="SettingsButtonOnClick" />
+                        </StackPanel>
                     </Border>
 
                     <Grid Grid.Row="2"
