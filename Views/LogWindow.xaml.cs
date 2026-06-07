@@ -18,6 +18,11 @@ public partial class LogWindow : FluentDialogWindow
         LogPathTextBlock.Text = logService.LogPath;
     }
 
+    private void AddFakeEntriesButtonOnClick(object sender, RoutedEventArgs e)
+    {
+        _logService.AddSampleEntries();
+    }
+
     private void ClearButtonOnClick(object sender, RoutedEventArgs e)
     {
         _logService.Clear();

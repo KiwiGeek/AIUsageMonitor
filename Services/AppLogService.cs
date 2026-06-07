@@ -29,6 +29,15 @@ public sealed class AppLogService
 
     public void Error(string source, string message) => Add("Error", source, message);
 
+    public void AddSampleEntries()
+    {
+        Info("App", "Sample info entry for log UI testing.");
+        Warning("OpenAI", "Rate limit approaching: 85% of 5h window used.");
+        Error("Anthropic", "Collector returned HTTP 503; will retry on next refresh.");
+        Info("Cursor", "Dashboard session refreshed successfully.");
+        Warning("Gemini", "Quota check skipped: API key not configured.");
+    }
+
     public void Clear()
     {
         Entries.Clear();

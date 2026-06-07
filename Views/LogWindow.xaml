@@ -40,20 +40,27 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <ui:Button Grid.Column="1"
+                           MinWidth="124"
+                           Margin="0,0,8,0"
+                           Appearance="Secondary"
+                           Content="Add Fake Entries"
+                           Click="AddFakeEntriesButtonOnClick" />
+                <ui:Button Grid.Column="2"
                            MinWidth="112"
                            Margin="0,0,8,0"
                            Appearance="Secondary"
                            Content="Copy Selected"
                            Click="CopySelectedButtonOnClick" />
-                <ui:Button Grid.Column="2"
+                <ui:Button Grid.Column="3"
                            MinWidth="92"
                            Margin="0,0,8,0"
                            Appearance="Secondary"
                            Content="Copy All"
                            Click="CopyAllButtonOnClick" />
-                <ui:Button Grid.Column="3"
+                <ui:Button Grid.Column="4"
                            MinWidth="92"
                            Appearance="Secondary"
                            Content="Clear"
@@ -75,9 +82,86 @@
                       GridLinesVisibility="Horizontal"
                       Background="{DynamicResource ControlFillColorDefaultBrush}"
                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                      BorderBrush="{DynamicResource ControlElevationBorderBrush}"
-                      RowBackground="{DynamicResource ControlFillColorDefaultBrush}"
-                      AlternatingRowBackground="{DynamicResource ControlFillColorSecondaryBrush}" />
+                      BorderBrush="{DynamicResource ControlElevationBorderBrush}">
+                <DataGrid.Resources>
+                    <Style x:Key="LogCellTextStyle" TargetType="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="Padding" Value="10,6,10,6" />
+                    </Style>
+
+                    <Style x:Key="LogLevelCellTextStyle"
+                           TargetType="TextBlock"
+                           BasedOn="{StaticResource LogCellTextStyle}">
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                    </Style>
+
+                    <Style x:Key="LogCellStyle" TargetType="DataGridCell">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="Transparent" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+
+                    <Style x:Key="LogRowStyle" TargetType="DataGridRow">
+                        <Setter Property="Background"
+                                Value="{DynamicResource ControlFillColorDefaultBrush}" />
+                        <Setter Property="Foreground"
+                                Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Level}" Value="Warning">
+                                <Setter Property="Background" Value="#3A2E12" />
+                                <Setter Property="Foreground" Value="#FBBF24" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Level}" Value="Error">
+                                <Setter Property="Background" Value="#2B1B20" />
+                                <Setter Property="Foreground" Value="#FCA5A5" />
+                            </DataTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                    <Condition Property="IsSelected" Value="False" />
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Background" Value="#323945" />
+                            </MultiTrigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#2A4A6E" />
+                                <Setter Property="Foreground" Value="#F3F4F6" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.Resources>
+
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell" BasedOn="{StaticResource LogCellStyle}" />
+                </DataGrid.CellStyle>
+
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource LogRowStyle}" />
+                </DataGrid.RowStyle>
+
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Time"
+                                        Width="168"
+                                        Binding="{Binding Timestamp, StringFormat=yyyy-MM-dd HH:mm:ss}"
+                                        ElementStyle="{StaticResource LogCellTextStyle}" />
+                    <DataGridTextColumn Header="Level"
+                                        Width="72"
+                                        Binding="{Binding Level}"
+                                        ElementStyle="{StaticResource LogLevelCellTextStyle}" />
+                    <DataGridTextColumn Header="Source"
+                                        Width="120"
+                                        Binding="{Binding Source}"
+                                        ElementStyle="{StaticResource LogCellTextStyle}" />
+                    <DataGridTextColumn Width="*"
+                                        Header="Message"
+                                        Binding="{Binding Message}"
+                                        ElementStyle="{StaticResource LogCellTextStyle}" />
+                </DataGrid.Columns>
+            </DataGrid>
 
             <TextBlock x:Name="LogPathTextBlock"
                        Grid.Row="2"
