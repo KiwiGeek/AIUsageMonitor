@@ -283,7 +283,7 @@
                     <ui:Button Margin="6,0,0,0"
                                Appearance="Secondary"
                                Click="MinimizeButtonOnClick"
-                               Icon="{ui:SymbolIcon Symbol=WindowMinimize24}"
+                               Icon="{ui:SymbolIcon Symbol=Subtract24}"
                                ToolTip="Minimize"
                                Visibility="{Binding ShowMinimizeButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <ui:Button x:Name="TopHideButton"
@@ -741,7 +741,7 @@
                 <ui:Button Margin="0,4,0,0"
                            Appearance="Secondary"
                            Click="MinimizeButtonOnClick"
-                           Icon="{ui:SymbolIcon Symbol=WindowMinimize24}"
+                           Icon="{ui:SymbolIcon Symbol=Subtract24}"
                            ToolTip="Minimize"
                            Visibility="{Binding ShowMinimizeButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <ui:Button x:Name="SideHideButton"
