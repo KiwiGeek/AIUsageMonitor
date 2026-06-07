@@ -132,6 +132,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     private bool _snapAutoHideWhenSnapped;
     private bool _closeToSystemTray = true;
     private bool _minimizeToSystemTray = true;
+    private bool _isMinimizingToTaskbar;
     private bool _isSnapAutoHideExpanded = true;
     private bool _snapAutoHideMinSizeOverridden;
     private bool _snapAutoHideChromeSuppressed;
@@ -191,7 +192,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
     }
 
     private bool AllowSystemWindowPositionChanges() =>
-        _isManualDragging || _isApplyingPlacement || _inSystemSizeMove;
+        _isManualDragging || _isApplyingPlacement || _inSystemSizeMove || _isMinimizingToTaskbar;
 
     private bool IsResizeInteractionSuppressed() =>
         IsSnapAutoHideCollapsed() || _isManualDragging;
@@ -543,8 +544,11 @@ public partial class UsageOverlayWindow : FluentAppWindow
         }
         else
         {
-            // Topmost windows resist minimization — the OS immediately restores them.
-            // Clear Topmost first; StateChanged restores it when the window comes back.
+            // WindowsSnapSuppression blocks WM_WINDOWPOSCHANGING (which fires when
+            // Windows moves the window to its minimized position). Setting this flag
+            // tells AllowSystemWindowPositionChanges to pass the message through.
+            // Topmost also fights minimization — clear it too.
+            _isMinimizingToTaskbar = true;
             Topmost = false;
             WindowState = WindowState.Minimized;
         }
@@ -552,6 +556,7 @@ public partial class UsageOverlayWindow : FluentAppWindow
 
     private void WindowOnStateChanged(object? sender, EventArgs e)
     {
+        _isMinimizingToTaskbar = false;
         if (WindowState != WindowState.Minimized && !_closeToSystemTray && !_minimizeToSystemTray)
         {
             Topmost = true;
