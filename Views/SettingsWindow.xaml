@@ -18,6 +18,13 @@
                  WindowStartupLocation="CenterOwner"
                  ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
                  ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <local:FluentDialogWindow.Resources>
+        <Style x:Key="SettingsSectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+    </local:FluentDialogWindow.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -40,9 +47,7 @@
                           VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <StackPanel>
-                        <TextBlock FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        <TextBlock Style="{StaticResource SettingsSectionHeaderStyle}"
                                    Text="Update interval" />
                         <DockPanel Margin="0,8,0,0">
                             <ui:TextBox x:Name="UpdateIntervalTextBox"
@@ -60,10 +65,9 @@
                                    Text="Default is 20. Manual refresh still runs immediately." />
                     </StackPanel>
 
-                    <StackPanel Margin="0,22,0,0">
-                        <TextBlock FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                    <Separator Margin="0,18,0,16"/>
+                    <StackPanel Margin="0,0,0,0">
+                        <TextBlock Style="{StaticResource SettingsSectionHeaderStyle}"
                                    Text="Providers" />
                         <TextBlock Margin="0,8,0,0"
                                    FontSize="12"
@@ -272,10 +276,9 @@
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Margin="0,22,0,0">
-                        <TextBlock FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                    <Separator Margin="0,18,0,16"/>
+                    <StackPanel Margin="0,0,0,0">
+                        <TextBlock Style="{StaticResource SettingsSectionHeaderStyle}"
                                    Text="Overlay window" />
                         <CheckBox x:Name="OverlaySnapToScreenCheckBox"
                                   Margin="0,10,0,0"
@@ -306,18 +309,26 @@
                         <TextBlock Margin="24,4,0,0"
                                    FontSize="12"
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                   Text="Collapses to the screen edge until the pointer moves nearby. Cannot be used with reserve screen space."
+                                   Text="Collapses to the screen edge until the pointer moves nearby. Mutually exclusive with 'Reserve screen space'."
                                    TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <StackPanel Margin="0,16,0,0">
+                    <Separator Margin="0,18,0,16"/>
+                    <StackPanel Margin="0,0,0,0">
+                        <TextBlock Style="{StaticResource SettingsSectionHeaderStyle}"
+                                   Text="Startup" />
                         <CheckBox x:Name="AutoRunAtLoginCheckBox"
+                                  Margin="0,10,0,0"
                                   Content="Auto run at login"
                                   FontSize="13" />
                     </StackPanel>
 
-                    <StackPanel Margin="0,16,0,0">
+                    <Separator Margin="0,18,0,16"/>
+                    <StackPanel Margin="0,0,0,0">
+                        <TextBlock Style="{StaticResource SettingsSectionHeaderStyle}"
+                                   Text="Waifu Squad" />
                         <CheckBox x:Name="WaifuSquadCheckBox"
+                                  Margin="0,10,0,0"
                                   Checked="WaifuSquadOptionOnChanged"
                                   Content="Waifu Squad"
                                   FontSize="13"
@@ -368,11 +379,10 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <ui:Button Width="92"
-                           HorizontalAlignment="Left"
-                           Appearance="Secondary"
-                           Click="AboutButtonOnClick"
-                           Content="About" />
+                <ui:HyperlinkButton
+                    HorizontalAlignment="Left"
+                    Content="About"
+                    Click="AboutButtonOnClick" />
 
                 <StackPanel Grid.Column="1"
                             HorizontalAlignment="Right"
