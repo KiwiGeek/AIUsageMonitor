@@ -18,15 +18,36 @@ public partial class LogWindow : FluentDialogWindow
         LogPathTextBlock.Text = logService.LogPath;
     }
 
+#if DEBUG
     private void AddFakeEntriesButtonOnClick(object sender, RoutedEventArgs e)
     {
         _logService.AddSampleEntries();
     }
+#endif
 
     private void ClearButtonOnClick(object sender, RoutedEventArgs e)
     {
+        var result = System.Windows.MessageBox.Show(
+            "Clear all log entries?",
+            "Confirm Clear",
+            System.Windows.MessageBoxButton.OKCancel,
+            System.Windows.MessageBoxImage.Question);
+        if (result != System.Windows.MessageBoxResult.OK) return;
+
         _logService.Clear();
         LogsCleared?.Invoke(this, EventArgs.Empty);
+
+        LogPathTextBlock.Text = "Log cleared.";
+        var timer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            LogPathTextBlock.Text = _logService.LogPath;
+        };
+        timer.Start();
     }
 
     private void CopySelectedButtonOnClick(object sender, RoutedEventArgs e)
