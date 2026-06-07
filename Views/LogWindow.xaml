@@ -106,23 +106,23 @@
                                 Value="{DynamicResource TextFillColorPrimaryBrush}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding Level}" Value="Warning">
-                                <Setter Property="Background" Value="#3A2E12" />
-                                <Setter Property="Foreground" Value="#FBBF24" />
+                                <Setter Property="Background" Value="{StaticResource LogWarningBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource LogWarningForegroundBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding Level}" Value="Error">
-                                <Setter Property="Background" Value="#2B1B20" />
-                                <Setter Property="Foreground" Value="#FCA5A5" />
+                                <Setter Property="Background" Value="{StaticResource ErrorBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource ErrorTextBrush}" />
                             </DataTrigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsMouseOver" Value="True" />
                                     <Condition Property="IsSelected" Value="False" />
                                 </MultiTrigger.Conditions>
-                                <Setter Property="Background" Value="#323945" />
+                                <Setter Property="Background" Value="{StaticResource LogHoverBackgroundBrush}" />
                             </MultiTrigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#2A4A6E" />
-                                <Setter Property="Foreground" Value="#F3F4F6" />
+                                <Setter Property="Background" Value="{StaticResource LogSelectedBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource CardTextPrimaryBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>

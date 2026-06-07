@@ -149,7 +149,7 @@
             <Setter Property="Height" Value="9" />
             <Setter Property="Minimum" Value="0" />
             <Setter Property="Maximum" Value="100" />
-            <Setter Property="Background" Value="#242832" />
+            <Setter Property="Background" Value="{StaticResource ProgressTrackBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
@@ -309,8 +309,8 @@
 
                     <Border Grid.Row="0"
                             Padding="12,10"
-                            Background="#2B1B20"
-                            BorderBrush="#7F1D1D"
+                            Background="{StaticResource ErrorBackgroundBrush}"
+                            BorderBrush="{StaticResource ErrorBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="8">
                         <Border.Style>
@@ -341,7 +341,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock FontSize="13" Foreground="#FCA5A5"
+                            <TextBlock FontSize="13" Foreground="{StaticResource ErrorTextBrush}"
                                        Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
                             <ui:Button Grid.Column="1"
                                        Margin="8,0,0,0"
@@ -466,7 +466,7 @@
                                                                VerticalAlignment="Center"
                                                                FontSize="18"
                                                                FontWeight="SemiBold"
-                                                               Foreground="#F3F4F6"
+                                                               Foreground="{StaticResource CardTextPrimaryBrush}"
                                                                Text="{Binding Name}"
                                                                TextTrimming="CharacterEllipsis" />
                                                     <StackPanel Grid.Column="2" HorizontalAlignment="Right">
@@ -482,14 +482,14 @@
                                                         <TextBlock Margin="0,6,0,0"
                                                                    HorizontalAlignment="Right"
                                                                    FontSize="11"
-                                                                   Foreground="#8B93A1"
+                                                                   Foreground="{StaticResource CardTextDimBrush}"
                                                                    Text="{Binding CheckedText}" />
                                                     </StackPanel>
                                                 </Grid>
 
                                                 <StackPanel Grid.Row="1" Margin="0,18,0,0">
                                                     <TextBlock FontSize="13"
-                                                               Foreground="#A8AFBA"
+                                                               Foreground="{StaticResource CardTextMutedBrush}"
                                                                Text="{Binding StatusMessage}"
                                                                TextWrapping="Wrap"
                                                                Visibility="{Binding IsUnavailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -505,12 +505,12 @@
                                                                         </Grid.ColumnDefinitions>
                                                                         <TextBlock FontSize="13"
                                                                                    FontWeight="SemiBold"
-                                                                                   Foreground="#D6DAE1"
+                                                                                   Foreground="{StaticResource CardTextSubtleBrush}"
                                                                                    Text="{Binding Title}" />
                                                                         <TextBlock Grid.Column="1"
                                                                                    FontSize="13"
                                                                                    FontWeight="SemiBold"
-                                                                                   Foreground="#F9FAFB"
+                                                                                   Foreground="{StaticResource CardTextBrightBrush}"
                                                                                    Text="{Binding RemainingText}" />
                                                                     </Grid>
 
@@ -525,7 +525,7 @@
                                                                             <ColumnDefinition Width="Auto" />
                                                                         </Grid.ColumnDefinitions>
                                                                         <TextBlock FontSize="12"
-                                                                                   Foreground="#A8AFBA"
+                                                                                   Foreground="{StaticResource CardTextMutedBrush}"
                                                                                    Text="{Binding LimitText}" />
                                                                         <StackPanel Grid.Column="1"
                                                                                     HorizontalAlignment="Right"
@@ -536,7 +536,7 @@
                                                                                        Text="{Binding ResetRelativeText}" />
                                                                             <TextBlock Margin="10,0,0,0"
                                                                                        FontSize="12"
-                                                                                       Foreground="#A8AFBA"
+                                                                                       Foreground="{StaticResource CardTextMutedBrush}"
                                                                                        Text="{Binding ResetText}" />
                                                                         </StackPanel>
                                                                     </Grid>
@@ -556,7 +556,7 @@
                                                     <TextBlock VerticalAlignment="Center"
                                                                FontSize="15"
                                                                FontWeight="SemiBold"
-                                                               Foreground="#F3F4F6"
+                                                               Foreground="{StaticResource CardTextPrimaryBrush}"
                                                                Text="{Binding SummaryText}"
                                                                TextTrimming="CharacterEllipsis" />
                                                     <Border Grid.Column="1"
@@ -585,7 +585,7 @@
                                                                 <TextBlock MinWidth="58"
                                                                            MaxWidth="130"
                                                                            FontSize="11"
-                                                                           Foreground="#A8AFBA"
+                                                                           Foreground="{StaticResource CardTextMutedBrush}"
                                                                            Text="{Binding Title}"
                                                                            TextTrimming="CharacterEllipsis" />
                                                                 <ProgressBar Grid.Column="1"
@@ -605,7 +605,7 @@
                                                                            Margin="8,0,0,0"
                                                                            FontSize="11"
                                                                            FontWeight="SemiBold"
-                                                                           Foreground="#D6DAE1"
+                                                                           Foreground="{StaticResource CardTextSubtleBrush}"
                                                                            Text="{Binding RemainingText}" />
                                                             </Grid>
                                                         </DataTemplate>
@@ -616,7 +616,7 @@
                                             <StackPanel Style="{StaticResource ProviderCardMiniContentStyle}">
                                                 <TextBlock FontSize="12"
                                                            FontWeight="SemiBold"
-                                                           Foreground="#F3F4F6"
+                                                           Foreground="{StaticResource CardTextPrimaryBrush}"
                                                            Text="{Binding SummaryText}"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <ProgressBar Height="6"
@@ -637,8 +637,8 @@
                     </ScrollViewer>
 
                     <Border Grid.Row="1"
-                            Background="#1D2028"
-                            BorderBrush="#303641"
+                            Background="{StaticResource EmptyStateBackgroundBrush}"
+                            BorderBrush="{StaticResource EmptyStateBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="8">
                         <Border.Style>
@@ -662,7 +662,7 @@
                             </Style>
                         </Border.Style>
                         <StackPanel>
-                            <TextBlock FontSize="13" Foreground="#A8AFBA"
+                            <TextBlock FontSize="13" Foreground="{StaticResource CardTextMutedBrush}"
                                        Text="No providers enabled. Open Settings to enable one."
                                        TextWrapping="Wrap" />
                             <ui:Button Margin="0,10,0,0"

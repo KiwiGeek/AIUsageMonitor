@@ -10,6 +10,32 @@
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+            <!-- Card text hierarchy -->
+            <SolidColorBrush x:Key="CardTextPrimaryBrush"  Color="#F3F4F6" />
+            <SolidColorBrush x:Key="CardTextBrightBrush"   Color="#F9FAFB" />
+            <SolidColorBrush x:Key="CardTextSubtleBrush"   Color="#D6DAE1" />
+            <SolidColorBrush x:Key="CardTextMutedBrush"    Color="#A8AFBA" />
+            <SolidColorBrush x:Key="CardTextDimBrush"      Color="#8B93A1" />
+            <SolidColorBrush x:Key="FooterTextBrush"       Color="#6B7280" />
+
+            <!-- Progress bar track -->
+            <SolidColorBrush x:Key="ProgressTrackBrush"    Color="#242832" />
+
+            <!-- Error / alert surfaces -->
+            <SolidColorBrush x:Key="ErrorBackgroundBrush"  Color="#2B1B20" />
+            <SolidColorBrush x:Key="ErrorBorderBrush"      Color="#7F1D1D" />
+            <SolidColorBrush x:Key="ErrorTextBrush"        Color="#FCA5A5" />
+
+            <!-- Empty-state panel -->
+            <SolidColorBrush x:Key="EmptyStateBackgroundBrush" Color="#1D2028" />
+            <SolidColorBrush x:Key="EmptyStateBorderBrush"     Color="#303641" />
+
+            <!-- Log row states -->
+            <SolidColorBrush x:Key="LogWarningBackgroundBrush"  Color="#3A2E12" />
+            <SolidColorBrush x:Key="LogWarningForegroundBrush"  Color="#FBBF24" />
+            <SolidColorBrush x:Key="LogHoverBackgroundBrush"    Color="#323945" />
+            <SolidColorBrush x:Key="LogSelectedBackgroundBrush" Color="#2A4A6E" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
