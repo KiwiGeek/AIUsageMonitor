@@ -192,7 +192,8 @@ public partial class UsageOverlayWindow : FluentAppWindow
     }
 
     private bool AllowSystemWindowPositionChanges() =>
-        _isManualDragging || _isApplyingPlacement || _inSystemSizeMove || _isMinimizingToTaskbar;
+        _isManualDragging || _isApplyingPlacement || _inSystemSizeMove || _isMinimizingToTaskbar
+        || WindowState == WindowState.Minimized;
 
     private bool IsResizeInteractionSuppressed() =>
         IsSnapAutoHideCollapsed() || _isManualDragging;
