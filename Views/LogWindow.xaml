@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:local="clr-namespace:AIUsageMonitor.Views"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="Seth's AI Usage Monitor Logs"
+                 Title="Logs — AI Usage Monitor"
                  Width="760"
                  Height="460"
                  ExtendsContentIntoTitleBar="True"
