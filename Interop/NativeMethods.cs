@@ -47,6 +47,17 @@ internal static class NativeMethods
     [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
     public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
+    public const int WmNcHitTest = 0x0084;
+
+    public const int HtLeft = 10;
+    public const int HtRight = 11;
+    public const int HtTop = 12;
+    public const int HtTopLeft = 13;
+    public const int HtTopRight = 14;
+    public const int HtBottom = 15;
+    public const int HtBottomLeft = 16;
+    public const int HtBottomRight = 17;
+
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int pvAttribute, int cbAttribute);
 

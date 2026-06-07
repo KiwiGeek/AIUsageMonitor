@@ -227,6 +227,45 @@ internal static class OverlayEdgeSnapService
         currentBoundsPixels;
 
     /// <summary>
+    /// Builds the rectangle proposed to <c>ABM_QUERYPOS</c>/<c>ABM_SETPOS</c>. The dimension
+    /// along the dock edge spans the monitor; thickness comes from the overlay HWND.
+    /// </summary>
+    public static Rect BuildAppBarProposalBoundsPixels(
+        OverlayEdgeSnap snapEdge,
+        WinForms.Screen screen,
+        Rect windowBoundsPixels)
+    {
+        var screenBounds = WindowBoundsHelper.GetBoundsPixels(screen);
+        var width = Math.Max(1, windowBoundsPixels.Width);
+        var height = Math.Max(1, windowBoundsPixels.Height);
+
+        return snapEdge switch
+        {
+            OverlayEdgeSnap.Left => new Rect(
+                windowBoundsPixels.Left,
+                screenBounds.Top,
+                width,
+                screenBounds.Height),
+            OverlayEdgeSnap.Right => new Rect(
+                windowBoundsPixels.Right - width,
+                screenBounds.Top,
+                width,
+                screenBounds.Height),
+            OverlayEdgeSnap.Top => new Rect(
+                screenBounds.Left,
+                windowBoundsPixels.Top,
+                screenBounds.Width,
+                height),
+            OverlayEdgeSnap.Bottom => new Rect(
+                screenBounds.Left,
+                windowBoundsPixels.Bottom - height,
+                screenBounds.Width,
+                height),
+            _ => windowBoundsPixels
+        };
+    }
+
+    /// <summary>
     /// Aligns the snapped strip on its dock edge while preserving size. Uses the window's
     /// current dock-edge coordinate (or <paramref name="dockAnchorBoundsPixels"/> when set).
     /// Do not use <see cref="WindowBoundsHelper.GetWorkingAreaPixels"/> for the dock axis:
@@ -242,26 +281,31 @@ internal static class OverlayEdgeSnapService
         var width = Math.Clamp(currentBoundsPixels.Width, 1, workArea.Width);
         var height = Math.Clamp(currentBoundsPixels.Height, 1, workArea.Height);
         var anchor = dockAnchorBoundsPixels ?? currentBoundsPixels;
+        // With an app-bar anchor, clamp along the free axis against the full monitor bounds.
+        // Post-registration work area is already inset and would pull the strip off the dock edge.
+        var clampBounds = dockAnchorBoundsPixels is not null
+            ? WindowBoundsHelper.GetBoundsPixels(screen)
+            : workArea;
 
         return snapEdge switch
         {
             OverlayEdgeSnap.Left => new Rect(
                 anchor.Left,
-                ClampVerticalPosition(currentBoundsPixels.Top, height, workArea),
+                ClampVerticalPosition(currentBoundsPixels.Top, height, clampBounds),
                 width,
                 height),
             OverlayEdgeSnap.Right => new Rect(
                 anchor.Right - width,
-                ClampVerticalPosition(currentBoundsPixels.Top, height, workArea),
+                ClampVerticalPosition(currentBoundsPixels.Top, height, clampBounds),
                 width,
                 height),
             OverlayEdgeSnap.Top => new Rect(
-                ClampHorizontalPosition(currentBoundsPixels.Left, width, workArea),
+                ClampHorizontalPosition(currentBoundsPixels.Left, width, clampBounds),
                 anchor.Top,
                 width,
                 height),
             OverlayEdgeSnap.Bottom => new Rect(
-                ClampHorizontalPosition(currentBoundsPixels.Left, width, workArea),
+                ClampHorizontalPosition(currentBoundsPixels.Left, width, clampBounds),
                 anchor.Bottom - height,
                 width,
                 height),
@@ -321,15 +365,13 @@ internal static class OverlayEdgeSnapService
             string.Equals(screen.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase));
     }
 
-    public static void ApplySnap(
+    public static bool ApplySnap(
         Window window,
         OverlayEdgeSnap snapEdge,
         WinForms.Screen screen,
         Rect appBarBoundsPixels,
-        AppBarRegistration appBar)
-    {
-        appBar.TryRegister(window, snapEdge, appBarBoundsPixels);
-    }
+        AppBarRegistration appBar) =>
+        appBar.TryRegister(window, snapEdge, screen, appBarBoundsPixels);
 
     public static void ClearSnap(Window window, AppBarRegistration appBar)
     {

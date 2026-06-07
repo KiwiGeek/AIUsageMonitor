@@ -105,7 +105,7 @@ public sealed class AppSettings
 
         if (OverlaySnapAutoHideWhenSnappedEnabled && OverlaySnapReserveScreenSpaceEnabled)
         {
-            OverlaySnapReserveScreenSpaceEnabled = false;
+            OverlaySnapAutoHideWhenSnappedEnabled = false;
         }
 
         if (WaifuSquadOpacity < MinimumWaifuSquadOpacity ||

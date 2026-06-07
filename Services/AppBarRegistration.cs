@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Interop;
 using AIUsageMonitor.Interop;
 using AIUsageMonitor.Models;
+using WinForms = System.Windows.Forms;
 
 namespace AIUsageMonitor.Services;
 
@@ -12,7 +13,11 @@ internal sealed class AppBarRegistration : IDisposable
 
     public bool IsRegistered => _registeredWindowHandle != IntPtr.Zero;
 
-    public bool TryRegister(Window window, OverlayEdgeSnap snapEdge, Rect intendedBoundsPixels)
+    public bool TryRegister(
+        Window window,
+        OverlayEdgeSnap snapEdge,
+        WinForms.Screen screen,
+        Rect intendedBoundsPixels)
     {
         var handle = new WindowInteropHelper(window).Handle;
         if (handle == IntPtr.Zero || snapEdge == OverlayEdgeSnap.None)
@@ -20,7 +25,8 @@ internal sealed class AppBarRegistration : IDisposable
             return false;
         }
 
-        if (_registeredWindowHandle != IntPtr.Zero && _registeredWindowHandle != handle)
+        // Same HWND on a different edge still requires ABM_REMOVE before ABM_NEW.
+        if (_registeredWindowHandle != IntPtr.Zero)
         {
             Unregister(_registeredWindowHandle);
         }
@@ -31,26 +37,39 @@ internal sealed class AppBarRegistration : IDisposable
             return false;
         }
 
-        if (!WindowBoundsHelper.TryGetScreenBoundsPixels(window, out var barBounds))
-        {
-            barBounds = intendedBoundsPixels;
-        }
+        var barBounds = WindowBoundsHelper.TryGetScreenBoundsPixels(window, out var currentBounds)
+            ? currentBounds
+            : intendedBoundsPixels;
+        var proposal = OverlayEdgeSnapService.BuildAppBarProposalBoundsPixels(snapEdge, screen, barBounds);
 
         var data = new NativeMethods.AppBarData
         {
             cbSize = Marshal.SizeOf<NativeMethods.AppBarData>(),
             hWnd = handle,
             uEdge = appBarEdge.Value,
-            rc = ToNativeRect(barBounds)
+            rc = ToNativeRect(proposal)
         };
 
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmNew, ref data);
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmQueryPos, ref data);
         _ = NativeMethods.SHAppBarMessage(NativeMethods.AbmSetPos, ref data);
 
-        // Do not reposition the HWND here. The overlay is already docked; AppBar only
-        // reserves desktop space. Moving the window to shell-adjusted coordinates offsets
-        // it by the reserved width/height (past the strip into the new work area).
+        var negotiated = FromNativeRect(data.rc);
+        if (negotiated.Width > 0 &&
+            negotiated.Height > 0 &&
+            WindowBoundsHelper.TryGetScreenBoundsPixels(window, out var actualBounds))
+        {
+            var targetBounds = MergeNegotiatedAppBarBounds(snapEdge, actualBounds, negotiated);
+            if (WindowBoundsHelper.TryGetWindowBoundsMismatchPixels(window, targetBounds, tolerancePixels: 2))
+            {
+                WindowBoundsHelper.SetBoundsFromScreenPixels(
+                    window,
+                    targetBounds,
+                    enforceMinimumSize: true,
+                    syncWpfBounds: true);
+            }
+        }
+
         _registeredWindowHandle = handle;
         return true;
     }
@@ -112,4 +131,19 @@ internal sealed class AppBarRegistration : IDisposable
         };
     }
 
+    private static Rect FromNativeRect(NativeMethods.RectNative rect) =>
+        new(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
+
+    /// <summary>
+    /// Apply shell thickness on the dock axis while preserving user position on the free axis.
+    /// </summary>
+    private static Rect MergeNegotiatedAppBarBounds(OverlayEdgeSnap snapEdge, Rect actual, Rect negotiated) =>
+        snapEdge switch
+        {
+            OverlayEdgeSnap.Left => new Rect(negotiated.Left, actual.Top, negotiated.Width, actual.Height),
+            OverlayEdgeSnap.Right => new Rect(negotiated.Left, actual.Top, negotiated.Width, actual.Height),
+            OverlayEdgeSnap.Top => new Rect(actual.Left, negotiated.Top, actual.Width, negotiated.Height),
+            OverlayEdgeSnap.Bottom => new Rect(actual.Left, negotiated.Top, actual.Width, negotiated.Height),
+            _ => negotiated
+        };
 }
